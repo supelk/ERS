@@ -1,0 +1,117 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { NCard, NTag, NText, NProgress, NButton, NSpace } from 'naive-ui'
+import type { PracticeTask } from '@/types/exam'
+import { TASK_STATUS_COLORS } from '@/utils/constants'
+
+const props = defineProps<{
+  task: PracticeTask
+  sectionLabel?: string
+}>()
+
+const emit = defineEmits<{
+  edit: []
+  delete: []
+  advance: []
+}>()
+
+const progressPercent = computed(() => {
+  if (!props.task.total_questions) return 0
+  return Math.round((props.task.completed_questions / props.task.total_questions) * 100)
+})
+
+const isExpired = computed(() => {
+  if (!props.task.deadline || props.task.status === '已完成') return false
+  return new Date(props.task.deadline) < new Date()
+})
+</script>
+
+<template>
+  <NCard size="small" :bordered="true" class="task-card">
+    <!-- 标题行 -->
+    <div class="task-header">
+      <NText strong class="task-name">{{ task.task_name }}</NText>
+      <NTag :color="{ color: TASK_STATUS_COLORS[task.status], textColor: '#fff' }" size="small">
+        {{ task.status }}
+      </NTag>
+    </div>
+
+    <!-- 进度 -->
+    <div class="task-progress">
+      <NProgress
+        :percentage="progressPercent"
+        :color="task.status === '已完成' ? '#18a058' : '#2080f0'"
+        :height="6"
+        :border-radius="3"
+        :show-indicator="false"
+      />
+      <NText depth="3" class="progress-text">
+        {{ task.completed_questions }} / {{ task.total_questions }} 题（{{ progressPercent }}%）
+      </NText>
+    </div>
+
+    <!-- 关联板块 -->
+    <div v-if="sectionLabel" class="task-section">
+      <NText depth="3" style="font-size: 12px">关联：{{ sectionLabel }}</NText>
+    </div>
+
+    <!-- 截止时间 -->
+    <div v-if="task.deadline" class="task-deadline">
+      <NText :type="isExpired && task.status !== '已完成' ? 'error' : 'default'" style="font-size: 12px">
+        截止：{{ task.deadline }}
+      </NText>
+    </div>
+
+    <!-- 操作 -->
+    <div class="task-actions">
+      <NSpace :size="4">
+        <NButton size="tiny" quaternary type="info" @click="emit('advance')">
+          ▸
+        </NButton>
+        <NButton size="tiny" quaternary type="primary" @click="emit('edit')">
+          编辑
+        </NButton>
+        <NButton size="tiny" quaternary type="error" @click="emit('delete')">
+          删除
+        </NButton>
+      </NSpace>
+    </div>
+  </NCard>
+</template>
+
+<style scoped>
+.task-card {
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.task-name {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.task-progress {
+  margin-bottom: 6px;
+}
+.progress-text {
+  font-size: 11px;
+  margin-top: 2px;
+}
+.task-section {
+  margin-bottom: 2px;
+}
+.task-deadline {
+  margin-bottom: 4px;
+}
+.task-actions {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #eee;
+}
+</style>

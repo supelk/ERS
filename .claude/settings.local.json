@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(cargo add *)",
+      "Bash(pnpm add *)",
+      "Bash(cd \"d:/mydemo/ERS\" && mkdir -p src/types src/router src/stores src/db src/views src/components/layout src/components/exam src/components/analysis src/components/task src/components/common src/composables src/utils 2>&1)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npx vite *)",
+      "Bash(cargo check *)",
+      "Bash(pnpm tauri *)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(echo 'onlyBuiltDependenciesFile=pnpm.onlyBuiltDependencies.json')",
+      "Bash(echo '{\"onlyBuiltDependencies\":[\"esbuild\"]}')",
+      "Bash(pnpm install *)",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /IM ers.exe)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 20576)",
+      "Bash(taskkill /F /PID 23868)",
+      "Bash(powershell -Command \"Get-Process -Id 20576,23868 | Select-Object Id,ProcessName,Path\")"
+    ]
+  }
+}

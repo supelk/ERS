@@ -1,0 +1,103 @@
+import type Database from '@tauri-apps/plugin-sql'
+
+/**
+ * 初始化数据库表结构
+ * 在 Database.load() 之后调用
+ */
+export async function initDatabase(db: Database): Promise<void> {
+  // ============================================================
+  // 考试主表
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS exam_records (
+      exam_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exam_name TEXT NOT NULL,
+      exam_date TEXT NOT NULL,
+      exam_type_1 TEXT NOT NULL CHECK(exam_type_1 IN ('国考','省考')),
+      exam_type TEXT NOT NULL CHECK(exam_type IN ('模考','真题','专项练习','自测')),
+      total_score REAL NOT NULL DEFAULT 0,
+      full_score REAL NOT NULL DEFAULT 100,
+      current_target_score REAL,
+      next_target_score REAL,
+      total_time REAL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `)
+
+  // ============================================================
+  // 板块记录表（含自动计算列 + 二级板块支持）
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS exam_section_records (
+      section_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exam_id INTEGER NOT NULL,
+      section_name TEXT NOT NULL,
+      parent_section_name TEXT,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      correct_questions INTEGER NOT NULL DEFAULT 0,
+      per_question_score REAL NOT NULL DEFAULT 1,
+      used_time REAL DEFAULT 0,
+      unattempted_questions INTEGER DEFAULT 0,
+      accuracy REAL GENERATED ALWAYS AS (
+        CASE WHEN total_questions > 0
+          THEN CAST(correct_questions AS REAL) / total_questions * 100
+          ELSE 0 END
+      ) STORED,
+      score_efficiency REAL GENERATED ALWAYS AS (
+        CASE WHEN used_time > 0 AND used_time IS NOT NULL
+          THEN CAST(correct_questions AS REAL) * per_question_score / used_time
+          ELSE 0 END
+      ) STORED,
+      analysis TEXT,
+      plan TEXT,
+      next_target_accuracy REAL,
+      next_target_time REAL,
+      next_target_efficiency REAL,
+      FOREIGN KEY (exam_id) REFERENCES exam_records(exam_id) ON DELETE CASCADE
+    )
+  `)
+
+  // 迁移：为已有数据库添加 parent_section_name 列
+  try {
+    await db.execute(
+      `ALTER TABLE exam_section_records ADD COLUMN parent_section_name TEXT`
+    )
+    console.log('[DB] Migration: added parent_section_name column')
+  } catch {
+    // 列已存在，忽略
+  }
+
+  // ============================================================
+  // 练习任务表
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS practice_tasks (
+      task_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      section_id INTEGER,
+      task_name TEXT NOT NULL,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      completed_questions INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT '未开始'
+        CHECK(status IN ('未开始','进行中','已完成','逾期')),
+      deadline TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (section_id) REFERENCES exam_section_records(section_id) ON DELETE SET NULL
+    )
+  `)
+
+  // ============================================================
+  // 更新触发器（updated_at 自动更新时间戳）
+  // ============================================================
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS trg_exam_records_updated_at
+    AFTER UPDATE ON exam_records
+    BEGIN
+      UPDATE exam_records SET updated_at = datetime('now','localtime')
+      WHERE exam_id = NEW.exam_id;
+    END
+  `)
+
+  console.log('[DB] Database tables initialized successfully')
+}
