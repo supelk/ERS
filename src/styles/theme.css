@@ -1,0 +1,173 @@
+/* ============================================================
+   考试复盘系统 — "答题卡" 主题
+   ============================================================ */
+
+:root {
+  /* === 主色调 === */
+  --ink:        #1e272e;   /* 墨色 — 主文字、标题、侧边栏 */
+  --ink-light:  #2d3436;   /* 浅墨 — 卡片标题、分割线 */
+  --paper:      #f2ede4;   /* 暖纸色 — 页面背景 */
+  --paper-dark: #e8e0d5;   /* 深纸 — 悬浮/选中背景 */
+  --white:      #fefcf9;   /* 暖白 — 卡片表面 */
+
+  /* === 语义色 === */
+  --red-mark:    #d63031;  /* 批改红 — 未达标、删除、错误 */
+  --red-soft:    #ff7675;  /* 浅红 — 红色悬浮态 */
+  --green-mark:  #00b894;  /* 通过绿 — 达标、保存、完成 */
+  --green-soft:  #55efc4;  /* 浅绿 — 绿色悬浮态 */
+  --highlighter: #fdcb6e;  /* 荧光黄 — 重点、警告、标记 */
+  --pencil:      #636e72;  /* 铅笔灰 — 辅助文字、边框 */
+  --pencil-light:#b2bec3;  /* 浅灰 — 占位符、禁用态 */
+  --grid-line:   #dfe6e9;  /* 答题卡格线 — 分割线、表框 */
+
+  /* === 功能色 === */
+  --primary:       var(--ink);
+  --primary-hover: var(--ink-light);
+  --success:       var(--green-mark);
+  --warning:       var(--highlighter);
+  --error:         var(--red-mark);
+  --info:          #0984e3;
+
+  /* === 排版 === */
+  --font-display: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono:    'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+
+  /* === 间距 === */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+
+  /* === 阴影 === */
+  --shadow-card: 0 1px 3px rgba(30, 39, 46, 0.06), 0 1px 2px rgba(30, 39, 46, 0.04);
+  --shadow-elevated: 0 4px 12px rgba(30, 39, 46, 0.08);
+}
+
+/* ============================================================
+   全局重置
+   ============================================================ */
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   NaiveUI 覆盖
+   ============================================================ */
+
+/* 卡片 */
+.n-card {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-card) !important;
+  border: 1px solid var(--grid-line) !important;
+}
+
+/* 按钮 — 主按钮用墨色，白字 */
+.n-button--primary-type {
+  background-color: var(--ink) !important;
+  border-color: var(--ink) !important;
+  color: var(--paper) !important;
+}
+.n-button--primary-type:hover {
+  background-color: var(--ink-light) !important;
+  color: #fff !important;
+}
+.n-button--primary-type:active {
+  background-color: #000 !important;
+}
+
+/* 按钮 — 文字按钮确保可见 */
+.n-button--default-type {
+  color: var(--ink) !important;
+}
+.n-button--default-type:hover {
+  color: var(--ink-light) !important;
+}
+
+/* 按钮 — error 用批改红，白字 */
+.n-button--error-type {
+  background-color: var(--red-mark) !important;
+  border-color: var(--red-mark) !important;
+  color: #fff !important;
+}
+
+/* 按钮 — info/success/warning 用白字 */
+.n-button--info-type,
+.n-button--success-type,
+.n-button--warning-type {
+  color: #fff !important;
+}
+
+/* 输入框 */
+.n-input, .n-input-number .n-input-number-input {
+  border-radius: var(--radius-sm) !important;
+  background: var(--white) !important;
+}
+
+/* 下拉面板 */
+.n-base-select-menu {
+  background: var(--white) !important;
+}
+
+/* 卡片内的 NForm 等保持暖白 */
+.n-card {
+  background: var(--white) !important;
+}
+
+/* 表格 */
+.n-data-table {
+  border-radius: var(--radius-md) !important;
+  background: var(--white) !important;
+}
+.n-data-table .n-data-table-th {
+  background: var(--paper-dark) !important;
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+
+/* 进度条 */
+.n-progress.n-progress--success .n-progress-graph-line .n-progress-graph-line-fill {
+  background-color: var(--green-mark) !important;
+}
+
+/* 分割线 */
+.n-divider {
+  border-color: var(--grid-line) !important;
+}
+
+/* 弹窗 */
+.n-modal .n-card {
+  border: none !important;
+}
+
+/* 文字/小按钮（quaternary）确保可见 */
+.n-button--quaternary-type {
+  color: var(--pencil) !important;
+}
+.n-button--quaternary-type:hover {
+  color: var(--ink) !important;
+}
+
+/* 布局内容区背景 */
+.n-layout-content {
+  background: var(--paper) !important;
+}
+
+/* 顶栏 */
+.n-layout-header {
+  background: var(--white) !important;
+}
+
+/* Loading */
+.n-spin {
+  --n-spin-color: var(--ink) !important;
+}
