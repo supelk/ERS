@@ -133,46 +133,48 @@ const summary = computed(() => ({
       </NEmpty>
     </div>
 
-    <!-- 板块列表：父行 + 嵌套子行 -->
-    <template v-for="parent in parentSections" :key="parent.client_id">
-      <div class="parent-block">
-        <SectionRow
-          :model-value="parent"
-          :index="0"
-          @update:model-value="(v) => handleUpdate(parent.client_id, v)"
-          @remove="handleRemove(parent.client_id)"
-        />
-
-        <!-- 子板块列表 -->
-        <template v-for="child in getChildrenOfParent(parent.section_name)" :key="child.client_id">
-          <ChildSectionRow
-            :model-value="child"
-            :parent-section-name="parent.section_name"
-            @update:model-value="(v) => handleUpdate(child.client_id, v)"
-            @remove="handleRemove(child.client_id)"
+    <!-- 板块列表：横向滚动容器 + 父行 + 嵌套子行 -->
+    <div class="section-scroll">
+      <template v-for="parent in parentSections" :key="parent.client_id">
+        <div class="parent-block">
+          <SectionRow
+            :model-value="parent"
+            :index="0"
+            @update:model-value="(v) => handleUpdate(parent.client_id, v)"
+            @remove="handleRemove(parent.client_id)"
           />
-        </template>
 
-        <!-- 添加子板块按钮 -->
-        <div
-          v-if="getChildrenOf(parent.section_name).length > 0"
-          class="add-child-bar"
-        >
-          <NButton
-            size="tiny"
-            type="primary"
-            dashed
-            @click="handleAddChild(parent.section_name)"
+          <!-- 子板块列表 -->
+          <template v-for="child in getChildrenOfParent(parent.section_name)" :key="child.client_id">
+            <ChildSectionRow
+              :model-value="child"
+              :parent-section-name="parent.section_name"
+              @update:model-value="(v) => handleUpdate(child.client_id, v)"
+              @remove="handleRemove(child.client_id)"
+            />
+          </template>
+
+          <!-- 添加子板块按钮 -->
+          <div
+            v-if="getChildrenOf(parent.section_name).length > 0"
+            class="add-child-bar"
           >
-            + 添加子板块
-          </NButton>
-          <span style="font-size: 11px; color: #999; margin-left: 8px">
-            当前 {{ getChildrenOf(parent.section_name).length }} 个子项
-          </span>
+            <NButton
+              size="tiny"
+              type="primary"
+              dashed
+              @click="handleAddChild(parent.section_name)"
+            >
+              + 添加子板块
+            </NButton>
+            <span style="font-size: 11px; color: #999; margin-left: 8px">
+              当前 {{ getChildrenOf(parent.section_name).length }} 个子项
+            </span>
+          </div>
         </div>
-      </div>
-      <div style="margin-top: 12px; border-top: 1px dashed #ddd; padding-top: 4px" />
-    </template>
+        <div style="margin-top: 12px; border-top: 1px dashed #ddd; padding-top: 4px" />
+      </template>
+    </div>
 
     <!-- 汇总 -->
     <div v-if="parentSections.length > 0" class="summary-row">
@@ -205,6 +207,18 @@ const summary = computed(() => ({
 }
 .parent-block {
   margin-bottom: 4px;
+}
+.section-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* 窗口宽度 < 1200px 时显示滚动提示 */
+@media (max-width: 1199px) {
+  .section-scroll {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 8px;
+  }
 }
 .add-child-bar {
   margin: 6px 0 8px 32px;

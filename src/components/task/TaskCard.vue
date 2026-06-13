@@ -31,7 +31,11 @@ const isExpired = computed(() => {
     <!-- 标题行 -->
     <div class="task-header">
       <NText strong class="task-name">{{ task.task_name }}</NText>
-      <NTag :color="{ color: TASK_STATUS_COLORS[task.status], textColor: '#fff' }" size="small">
+      <NTag
+        :color="{ color: TASK_STATUS_COLORS[task.status], textColor: '#fff' }"
+        size="small"
+        :bordered="false"
+      >
         {{ task.status }}
       </NTag>
     </div>
@@ -40,10 +44,11 @@ const isExpired = computed(() => {
     <div class="task-progress">
       <NProgress
         :percentage="progressPercent"
-        :color="task.status === '已完成' ? '#18a058' : '#2080f0'"
+        :color="task.status === '已完成' ? 'var(--success)' : 'var(--primary)'"
         :height="6"
         :border-radius="3"
         :show-indicator="false"
+        processing
       />
       <NText depth="3" class="progress-text">
         {{ task.completed_questions }} / {{ task.total_questions }} 题（{{ progressPercent }}%）
@@ -65,7 +70,7 @@ const isExpired = computed(() => {
     <!-- 操作 -->
     <div class="task-actions">
       <NSpace :size="4">
-        <NButton size="tiny" quaternary type="info" @click="emit('advance')">
+        <NButton size="tiny" quaternary type="primary" @click="emit('advance')">
           ▸
         </NButton>
         <NButton size="tiny" quaternary type="primary" @click="emit('edit')">
@@ -83,6 +88,12 @@ const isExpired = computed(() => {
 .task-card {
   margin-bottom: 8px;
   cursor: pointer;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  transition: box-shadow 0.15s;
+}
+.task-card:hover {
+  box-shadow: var(--shadow-md);
 }
 .task-header {
   display: flex;
@@ -112,6 +123,6 @@ const isExpired = computed(() => {
 .task-actions {
   margin-top: 4px;
   padding-top: 4px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-light);
 }
 </style>

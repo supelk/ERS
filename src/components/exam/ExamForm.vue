@@ -181,4 +181,34 @@ const gridProps: GridProps = { cols: 24, xGap: 16 }
   font-weight: 600;
   font-size: 15px;
 }
+
+/* ============================================================
+   响应式断点
+   ============================================================ */
+
+/* 768px ~ 1200px：表单改为 2 列布局 */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .exam-form :deep(.n-grid) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .exam-form :deep(.n-gi) {
+    grid-column: span 1 !important;
+  }
+  /* 单个输入框最小宽度不低于 120px */
+  .exam-form :deep(.n-input),
+  .exam-form :deep(.n-input-number),
+  .exam-form :deep(.n-base-select) {
+    min-width: 120px;
+  }
+}
+
+/* < 768px：单列纵向排布 */
+@media (max-width: 767px) {
+  .exam-form :deep(.n-grid) {
+    grid-template-columns: 1fr !important;
+  }
+  .exam-form :deep(.n-gi) {
+    grid-column: span 1 !important;
+  }
+}
 </style>

@@ -14,7 +14,7 @@ import { useExamStore } from '@/stores/exam'
 import { useDatabaseStore } from '@/stores/database'
 import type { ExamFormData, ExamSectionFormData } from '@/types/exam'
 import { todayStr } from '@/utils/formatters'
-import { SECTION_HIERARCHY } from '@/utils/constants'
+import { SECTION_HIERARCHY, SECTION_QUESTION_PRESETS, SECTION_SCORE_PRESETS } from '@/utils/constants'
 
 const router = useRouter()
 const route = useRoute()
@@ -29,15 +29,15 @@ const loading = ref(false)
 let nextClientId = 1
 function genId(): string { return `auto-${Date.now()}-${nextClientId++}` }
 
-function createEmptySection(name: string, parentName: string | null): ExamSectionFormData {
+function createEmptySection(name: string, parentName: string | null, totalQuestions = 0, perQuestionScore = 1): ExamSectionFormData {
   return {
     client_id: genId(),
     section_id: 0,
     section_name: name,
     parent_section_name: parentName,
-    total_questions: 0,
+    total_questions: totalQuestions,
     correct_questions: 0,
-    per_question_score: 1,
+    per_question_score: perQuestionScore,
     used_time: 0,
     unattempted_questions: 0,
     analysis: null,
@@ -48,32 +48,32 @@ function createEmptySection(name: string, parentName: string | null): ExamSectio
   }
 }
 
-// 根据考试类型生成默认板块列表
 function buildDefaultSections(type1: string): ExamSectionFormData[] {
   const sections: ExamSectionFormData[] = []
+  const questionPresets = (SECTION_QUESTION_PRESETS as Record<string, Record<string, number>>)[type1]
+  const scorePresets = (SECTION_SCORE_PRESETS as Record<string, Record<string, number>>)[type1]
 
   for (const parent of SECTION_HIERARCHY) {
-    // 添加一级板块
-    sections.push(createEmptySection(parent.name, null))
+    const parentTotal = questionPresets?.[parent.name] ?? 0
+    const parentScore = scorePresets?.[parent.name] ?? 1
+    sections.push(createEmptySection(parent.name, null, parentTotal, parentScore))
 
-    // 添加二级板块（根据规则排除）
     if (parent.children) {
       for (const child of parent.children) {
         if (type1 === '国考') {
-          // 国考：排除 科学推理 和 数字推理
           if (child === '科学推理' || child === '数字推理') continue
         } else {
-          // 省考：排除 定义判断 和 类比推理
           if (child === '定义判断' || child === '类比推理') continue
         }
-        sections.push(createEmptySection(child, parent.name))
+        const childTotal = questionPresets?.[child] ?? 0
+        const childScore = scorePresets?.[child] ?? 1
+        sections.push(createEmptySection(child, parent.name, childTotal, childScore))
       }
     }
   }
   return sections
 }
 
-// 表单数据
 const formData = ref<ExamFormData>(createEmptyForm())
 
 function createEmptyForm(): ExamFormData {
@@ -93,7 +93,6 @@ function createEmptyForm(): ExamFormData {
   }
 }
 
-// 切换国考/省考时自动调整默认时间和板块（仅新建模式）
 watch(
   () => formData.value.exam_type_1,
   (newVal, oldVal) => {
@@ -108,7 +107,6 @@ watch(
   }
 )
 
-// 初始化：如果是编辑模式，加载数据
 onMounted(async () => {
   const examId = route.query.edit ? Number(route.query.edit) : null
   if (examId && examId > 0) {
@@ -157,17 +155,12 @@ onMounted(async () => {
   }
 })
 
-// ============================================================
-// 保存
-// ============================================================
 async function handleSave() {
-  // 数据库就绪检查
   if (!dbStore.isReady) {
     message.error('数据库未就绪，请重启应用')
     return
   }
 
-  // 1. 手动验证必填项
   const fd = formData.value
   if (!fd.exam_name.trim()) {
     message.warning('请输入考试名称')
@@ -186,7 +179,6 @@ async function handleSave() {
     return
   }
 
-  // 2. 板块验证
   if (formData.value.sections.length === 0) {
     message.warning('请至少添加一个板块')
     return
@@ -223,10 +215,10 @@ function handleCancel() {
   <div>
     <NSpin :show="loading">
       <div class="entry-header">
-        <h2 style="margin: 0">{{ isEdit ? '编辑考试' : '录入新考试' }}</h2>
-        <NSpace>
-          <NButton @click="handleCancel">取消</NButton>
-          <NButton type="primary" :loading="saving" @click="handleSave">
+        <h2 class="entry-title">{{ isEdit ? '编辑考试' : '录入新考试' }}</h2>
+        <NSpace :size="10">
+          <NButton size="medium" @click="handleCancel">取消</NButton>
+          <NButton type="primary" size="medium" :loading="saving" @click="handleSave">
             {{ isEdit ? '更新' : '保存' }}
           </NButton>
         </NSpace>
@@ -244,16 +236,19 @@ function handleCancel() {
         />
       </NCard>
 
-      <!-- 底部保存按钮 -->
+      <!-- 底部保存 -->
       <div style="margin-top: 24px; text-align: center">
-        <NButton
-          type="primary"
-          size="large"
-          :loading="saving"
-          @click="handleSave"
-        >
-          {{ isEdit ? '更新考试记录' : '保存考试记录' }}
-        </NButton>
+        <NSpace :size="12">
+          <NButton size="large" @click="handleCancel">取消</NButton>
+          <NButton
+            type="primary"
+            size="large"
+            :loading="saving"
+            @click="handleSave"
+          >
+            {{ isEdit ? '更新考试记录' : '保存考试记录' }}
+          </NButton>
+        </NSpace>
       </div>
     </NSpin>
   </div>
@@ -264,6 +259,13 @@ function handleCancel() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+.entry-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
 }
 </style>

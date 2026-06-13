@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { NCard, NDivider, NSpin, NEmpty, NSelect, NH3, NGrid, NGi, NButton, NSpace } from 'naive-ui'
+import { NCard, NSpin, NEmpty, NSelect, NH3, NGrid, NGi, NButton } from 'naive-ui'
 import { useAnalysisStore } from '@/stores/analysis'
 import TrendLineChart from '@/components/analysis/TrendLineChart.vue'
 import { EXAM_TYPE_1_OPTIONS, EXAM_TYPE_OPTIONS } from '@/utils/constants'
@@ -9,15 +9,12 @@ import type { TrendPoint, MultiExamSectionTrend, ExamType1, ExamType } from '@/t
 const analysisStore = useAnalysisStore()
 const loading = ref(true)
 
-// 筛选条件
 const filterType1 = ref<ExamType1 | ''>('')
 const filterType = ref<ExamType | ''>('')
 
-// 数据
 const scoreTrend = ref<TrendPoint[]>([])
 const allSectionTrends = ref<MultiExamSectionTrend[]>([])
 
-// 筛选选项
 const type1Options = [
   { label: '全部分类', value: '' },
   ...EXAM_TYPE_1_OPTIONS,
@@ -43,7 +40,6 @@ async function loadData() {
 
 onMounted(loadData)
 
-// 筛选变化时重新加载
 watch([filterType1, filterType], loadData)
 
 const scoreTrendChart = computed(() => ({
@@ -67,13 +63,13 @@ const filterLabel = computed(() => {
 <template>
   <div>
     <div class="trend-header">
-      <h2 style="margin: 0">趋势分析</h2>
+      <h2 class="trend-title">趋势分析</h2>
     </div>
 
-    <!-- 筛选栏 -->
-    <NCard size="small" style="margin-bottom: 16px">
-      <NSpace align="center">
-        <span style="font-weight: 600; font-size: 14px">筛选条件：</span>
+    <!-- 筛选栏 — 轻量化 -->
+    <div class="filter-bar">
+      <div class="filter-left">
+        <span class="filter-label">筛选条件：</span>
         <NSelect
           v-model:value="filterType1"
           :options="type1Options"
@@ -96,11 +92,11 @@ const filterLabel = computed(() => {
         >
           清除筛选
         </NButton>
-        <span style="color: #999; font-size: 12px; margin-left: auto">
-          匹配 {{ scoreTrend.length }} 场考试
-        </span>
-      </NSpace>
-    </NCard>
+      </div>
+      <span class="record-count">
+        匹配 {{ scoreTrend.length }} 场考试
+      </span>
+    </div>
 
     <NSpin :show="loading">
       <template v-if="!loading && scoreTrend.length === 0">
@@ -109,7 +105,7 @@ const filterLabel = computed(() => {
 
       <template v-if="scoreTrend.length > 0">
         <!-- 总分趋势 -->
-        <NCard>
+        <NCard style="margin-bottom: 24px">
           <TrendLineChart
             :title="`总分趋势${filterLabel}`"
             :x-labels="scoreTrendChart.xLabels"
@@ -118,11 +114,9 @@ const filterLabel = computed(() => {
           />
         </NCard>
 
-        <NDivider />
-
         <!-- 所有一级板块正确率趋势 -->
-        <NH3>一级板块正确率趋势</NH3>
-        <p v-if="allSectionTrends.length === 0" style="color: #999; padding: 24px 0">
+        <NH3 style="margin: 0 0 16px; font-weight: 600">一级板块正确率趋势</NH3>
+        <p v-if="allSectionTrends.length === 0" style="color: var(--text-tertiary); padding: 24px 0; text-align: center">
           暂无一级板块数据。请确保在录入考试时选择了一级板块（如：判断推理、言语理解等）。
         </p>
         <NGrid v-else :cols="2" :x-gap="16">
@@ -147,6 +141,40 @@ const filterLabel = computed(() => {
 
 <style scoped>
 .trend-header {
+  margin-bottom: 18px;
+}
+.trend-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+/* 筛选栏 — 轻量化 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
   margin-bottom: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+.filter-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.filter-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.record-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 </style>

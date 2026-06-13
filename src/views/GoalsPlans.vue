@@ -27,7 +27,6 @@ const showForm = ref(false)
 const editTask = ref<PracticeTask | null>(null)
 const sectionOptions = ref<{ label: string; value: number }[]>([])
 
-// 最新考试的各板块目标摘要
 const latestSectionGoals = ref<
   { section_name: string; exam_name: string; accuracy: number; target: number }[]
 >([])
@@ -47,7 +46,6 @@ onMounted(async () => {
 })
 
 async function loadGoals() {
-  // 获取最新一次考试的板块目标
   if (examStore.exams.length === 0) {
     await examStore.fetchExams()
   }
@@ -65,9 +63,6 @@ async function loadGoals() {
   }
 }
 
-// ============================================================
-// 任务操作
-// ============================================================
 function handleOpenCreate() {
   editTask.value = null
   showForm.value = true
@@ -130,24 +125,24 @@ async function handleFormSubmit(data: {
 <template>
   <div>
     <div class="goals-header">
-      <h2 style="margin: 0">目标与计划</h2>
+      <h2 class="goals-title">目标与计划</h2>
       <NButton type="primary" @click="handleOpenCreate">+ 新建任务</NButton>
     </div>
 
     <NSpin :show="loading">
       <!-- 目标摘要 -->
-      <NCard title="🎯 板块目标摘要" size="small" style="margin-bottom: 16px">
+      <NCard title="板块目标摘要" size="small" style="margin-bottom: 16px">
         <template v-if="latestSectionGoals.length > 0">
           <NGrid :cols="3" :x-gap="12">
             <NGi v-for="goal in latestSectionGoals" :key="goal.section_name">
               <div class="goal-item">
                 <NText strong>{{ goal.section_name }}</NText>
                 <NText depth="3" style="font-size: 12px">来自：{{ goal.exam_name }}</NText>
-                <span>
-                  当前 <b :style="{ color: goal.accuracy >= goal.target ? '#18a058' : '#d03050' }">
+                <span style="font-size: 13px">
+                  当前 <b :style="{ color: goal.accuracy >= goal.target ? 'var(--success)' : 'var(--error)' }">
                     {{ formatPercent(goal.accuracy) }}
                   </b>
-                  → 目标 <b>{{ formatPercent(goal.target) }}</b>
+                  → 目标 <b style="color: var(--primary)">{{ formatPercent(goal.target) }}</b>
                 </span>
               </div>
             </NGi>
@@ -159,7 +154,7 @@ async function handleFormSubmit(data: {
       </NCard>
 
       <!-- 任务看板 -->
-      <NCard title="📋 任务看板" size="small">
+      <NCard title="任务看板" size="small">
         <template v-if="taskStore.tasks.length > 0">
           <NGrid :cols="4" :x-gap="12">
             <NGi v-for="(statusKey, _) in (['未开始','进行中','已完成','逾期'] as TaskStatus[])" :key="statusKey">
@@ -178,14 +173,13 @@ async function handleFormSubmit(data: {
         <template v-else>
           <NEmpty description="还没有练习任务" size="small">
             <template #extra>
-              <NButton @click="handleOpenCreate">创建第一个任务</NButton>
+              <NButton type="primary" @click="handleOpenCreate">创建第一个任务</NButton>
             </template>
           </NEmpty>
         </template>
       </NCard>
     </NSpin>
 
-    <!-- 任务弹窗 -->
     <TaskForm
       :show="showForm"
       :section-options="sectionOptions"
@@ -201,15 +195,22 @@ async function handleFormSubmit(data: {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+.goals-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
 }
 .goal-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px;
-  background: var(--card-color, #fafafa);
-  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
 </style>

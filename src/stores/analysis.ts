@@ -17,14 +17,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   // ============================================================
-  // 单次考试：板块正确率对比（实际 vs 目标）
+  // 单次考试：板块正确率对比（实际 vs 目标）— 仅一级板块
   // ============================================================
   async function getSectionComparisons(examId: number): Promise<SectionComparison[]> {
     const db = getDb()
     const rows = await db.select<any[]>(
       `SELECT section_name, accuracy, next_target_accuracy
        FROM exam_section_records
-       WHERE exam_id = $1
+       WHERE exam_id = $1 AND (parent_section_name IS NULL OR parent_section_name = '')
        ORDER BY section_id`,
       [examId]
     )
@@ -38,14 +38,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   // ============================================================
-  // 单次考试：时间分配数据（用时占比 vs 题量占比）
+  // 单次考试：时间分配数据（用时占比 vs 题量占比）— 仅一级板块
   // ============================================================
   async function getTimeDistribution(examId: number): Promise<TimeDistribution[]> {
     const db = getDb()
     const rows = await db.select<any[]>(
       `SELECT section_name, used_time, total_questions
        FROM exam_section_records
-       WHERE exam_id = $1
+       WHERE exam_id = $1 AND (parent_section_name IS NULL OR parent_section_name = '')
        ORDER BY section_id`,
       [examId]
     )
@@ -60,14 +60,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   // ============================================================
-  // 单次考试：得分效率数据
+  // 单次考试：得分效率数据 — 仅一级板块
   // ============================================================
   async function getEfficiencyData(examId: number): Promise<{ section_name: string; value: number }[]> {
     const db = getDb()
     const rows = await db.select<any[]>(
       `SELECT section_name, score_efficiency
        FROM exam_section_records
-       WHERE exam_id = $1
+       WHERE exam_id = $1 AND (parent_section_name IS NULL OR parent_section_name = '')
        ORDER BY section_id`,
       [examId]
     )
@@ -200,7 +200,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     const exam = examRows[0]
 
-    // 板块统计
+    // 板块统计 — 仅统计一级板块（parent_section_name IS NULL），避免与子板块重复计数
     const sectionRows = await db.select<any[]>(
       `SELECT
          COUNT(*) as section_count,
@@ -211,7 +211,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
          SUM(correct_questions) as total_correct,
          SUM(used_time) as total_used_time
        FROM exam_section_records
-       WHERE exam_id = $1`,
+       WHERE exam_id = $1 AND (parent_section_name IS NULL OR parent_section_name = '')`,
       [examId]
     )
     const stats = sectionRows[0]

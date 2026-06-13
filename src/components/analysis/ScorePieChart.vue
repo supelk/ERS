@@ -11,17 +11,24 @@ const props = defineProps<{
 const appStore = useAppStore()
 
 const getOption = computed(() => ({
-  title: { text: '用时占比 vs 题量占比', left: 'center', textStyle: { fontSize: 14 } },
-  legend: { bottom: 0, data: ['用时占比', '题量占比'] },
+  title: {
+    text: '用时占比',
+    left: 'right',
+    top: 8,
+    textStyle: { fontSize: 14, fontWeight: 600, color: '#6B7280' },
+  },
   tooltip: { trigger: 'item' as const, formatter: '{b}: {c}%' },
   series: [
     {
       name: '用时占比',
       type: 'pie',
-      radius: ['45%', '70%'],
-      center: ['50%', '50%'],
+      radius: ['45%', '72%'],
+      center: ['50%', '55%'],
       label: { formatter: '{b}\n{c}%', fontSize: 11 },
-      data: props.data.map((d) => ({ name: d.section_name, value: parseFloat(d.time_percent.toFixed(1)) })),
+      data: props.data.map((d) => ({
+        name: d.section_name,
+        value: parseFloat(d.time_percent.toFixed(1)),
+      })),
     } as any,
   ],
 }))

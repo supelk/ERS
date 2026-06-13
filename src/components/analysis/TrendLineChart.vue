@@ -13,20 +13,22 @@ const props = defineProps<{
 const appStore = useAppStore()
 
 const getOption = computed(() => ({
-  title: { text: props.title, left: 'center', textStyle: { fontSize: 14 } },
+  title: { text: props.title, left: 'right', top: 8, textStyle: { fontSize: 14, fontWeight: 600, color: '#6B7280' } },
   tooltip: { trigger: 'axis' as const },
   legend: { bottom: 0, data: props.series.map((s) => s.name) },
-  grid: { left: '3%', right: '4%', bottom: '14%', top: '15%', containLabel: true },
+  grid: { left: '3%', right: '5%', bottom: '14%', top: '10%', containLabel: true },
   xAxis: {
     type: 'category' as const,
     data: props.xLabels,
     boundaryGap: false,
+    axisLabel: { rotate: 0, fontSize: 11, color: '#6B7280' },
   },
   yAxis: {
     type: 'value' as const,
     name: props.yAxisName || '',
     min: 0,
     max: 100,
+    axisLabel: { fontSize: 11, color: '#9CA3AF' },
   },
   series: props.series.map((s) => ({
     name: s.name,
