@@ -187,6 +187,144 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   // ============================================================
+  // 多考试：各一级板块用时趋势（支持筛选）
+  // ============================================================
+  async function getSectionTimeTrends(
+    filterType1?: string,
+    filterType?: string,
+  ): Promise<MultiExamSectionTrend[]> {
+    const db = getDb()
+    const conds: string[] = []
+    const params: any[] = []
+    let idx = 1
+    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
+    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
+
+    const rows = await db.select<any[]>(
+      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.parent_section_name, esr.used_time
+       FROM exam_section_records esr
+       JOIN exam_records er ON esr.exam_id = er.exam_id
+       WHERE 1=1 ${filterWhere}
+       ORDER BY er.exam_date ASC`,
+      params,
+    )
+
+    // 分组逻辑同 getAllSectionTrends：映射到一级板块，每场考试取平均值
+    const parentMap = new Map<string, Map<string, number[]>>()
+    for (const row of rows) {
+      let parentName: string
+      if (row.parent_section_name) {
+        parentName = row.parent_section_name
+      } else if (isParentSection(row.section_name)) {
+        parentName = row.section_name
+      } else {
+        const p = getParentSectionName(row.section_name)
+        parentName = p || row.section_name
+      }
+      const label = row.exam_name || row.exam_date
+      if (!parentMap.has(parentName)) parentMap.set(parentName, new Map())
+      const examMap = parentMap.get(parentName)!
+      if (!examMap.has(label)) examMap.set(label, [])
+      examMap.get(label)!.push(row.used_time ?? 0)
+    }
+
+    const results: MultiExamSectionTrend[] = []
+    for (const [parentName, examMap] of parentMap) {
+      const dataPoints: TrendPoint[] = []
+      for (const [label, times] of examMap) {
+        const avg = times.reduce((a, b) => a + b, 0) / times.length
+        dataPoints.push({ label, value: avg })
+      }
+      results.push({ section_name: parentName, dataPoints })
+    }
+    return results
+  }
+
+  // ============================================================
+  // 多考试：各一级板块得分效率趋势（支持筛选）
+  // ============================================================
+  async function getSectionEfficiencyTrends(
+    filterType1?: string,
+    filterType?: string,
+  ): Promise<MultiExamSectionTrend[]> {
+    const db = getDb()
+    const conds: string[] = []
+    const params: any[] = []
+    let idx = 1
+    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
+    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
+
+    const rows = await db.select<any[]>(
+      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.parent_section_name, esr.score_efficiency
+       FROM exam_section_records esr
+       JOIN exam_records er ON esr.exam_id = er.exam_id
+       WHERE 1=1 ${filterWhere}
+       ORDER BY er.exam_date ASC`,
+      params,
+    )
+
+    const parentMap = new Map<string, Map<string, number[]>>()
+    for (const row of rows) {
+      let parentName: string
+      if (row.parent_section_name) {
+        parentName = row.parent_section_name
+      } else if (isParentSection(row.section_name)) {
+        parentName = row.section_name
+      } else {
+        const p = getParentSectionName(row.section_name)
+        parentName = p || row.section_name
+      }
+      const label = row.exam_name || row.exam_date
+      if (!parentMap.has(parentName)) parentMap.set(parentName, new Map())
+      const examMap = parentMap.get(parentName)!
+      if (!examMap.has(label)) examMap.set(label, [])
+      examMap.get(label)!.push(row.score_efficiency ?? 0)
+    }
+
+    const results: MultiExamSectionTrend[] = []
+    for (const [parentName, examMap] of parentMap) {
+      const dataPoints: TrendPoint[] = []
+      for (const [label, effs] of examMap) {
+        const avg = effs.reduce((a, b) => a + b, 0) / effs.length
+        dataPoints.push({ label, value: avg })
+      }
+      results.push({ section_name: parentName, dataPoints })
+    }
+    return results
+  }
+
+  // ============================================================
+  // 获取当前筛选条件下的可用一级板块列表（按出现频次降序）
+  // ============================================================
+  async function getAvailableSections(filterType1?: string, filterType?: string): Promise<string[]> {
+    const db = getDb()
+    const conds: string[] = []
+    const params: any[] = []
+    let idx = 1
+    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
+    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
+
+    const rows = await db.select<any[]>(
+      `SELECT
+         CASE
+           WHEN esr.parent_section_name IS NOT NULL AND esr.parent_section_name != '' THEN esr.parent_section_name
+           ELSE esr.section_name
+         END as parent_name,
+         COUNT(DISTINCT esr.exam_id) as exam_count
+       FROM exam_section_records esr
+       JOIN exam_records er ON esr.exam_id = er.exam_id
+       WHERE 1=1 ${filterWhere}
+       GROUP BY parent_name
+       ORDER BY exam_count DESC`,
+      params,
+    )
+    return rows.map((r) => r.parent_name as string)
+  }
+
+  // ============================================================
   // 单次考试：汇总统计
   // ============================================================
   async function getExamSummary(examId: number) {
@@ -248,7 +386,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
     getTimeDistribution,
     getEfficiencyData,
     getScoreTrend,
+    getSectionTimeTrends,
+    getSectionEfficiencyTrends,
     getAllSectionTrends,
+    getAvailableSections,
     getExamSummary,
   }
 })

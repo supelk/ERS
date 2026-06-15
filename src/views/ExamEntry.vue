@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NCard,
@@ -10,11 +10,13 @@ import {
 } from 'naive-ui'
 import ExamForm from '@/components/exam/ExamForm.vue'
 import SectionTable from '@/components/exam/SectionTable.vue'
+import ReviewTabs from '@/components/exam/ReviewTabs.vue'
 import { useExamStore } from '@/stores/exam'
 import { useDatabaseStore } from '@/stores/database'
 import type { ExamFormData, ExamSectionFormData } from '@/types/exam'
 import { todayStr } from '@/utils/formatters'
 import { SECTION_HIERARCHY, SECTION_QUESTION_PRESETS, SECTION_SCORE_PRESETS } from '@/utils/constants'
+import { getMemory, saveMemory, type ExamMemory } from '@/utils/examMemory'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,6 +27,13 @@ const dbStore = useDatabaseStore()
 const isEdit = ref(false)
 const saving = ref(false)
 const loading = ref(false)
+
+/** 当前一级板块名称列表（供错题表分组联动） */
+const parentSectionNames = computed(() =>
+  formData.value.sections
+    .filter((s) => !s.parent_section_name)
+    .map((s) => s.section_name)
+)
 
 let nextClientId = 1
 function genId(): string { return `auto-${Date.now()}-${nextClientId++}` }
@@ -76,6 +85,42 @@ function buildDefaultSections(type1: string): ExamSectionFormData[] {
 
 const formData = ref<ExamFormData>(createEmptyForm())
 
+// ============================================================
+// 历史记忆：追踪用户已手动编辑的字段
+// ============================================================
+const touchedExamFields = ref<Set<string>>(new Set())
+
+function markTouched(field: string) {
+  touchedExamFields.value.add(field)
+}
+
+/** 将记忆数据中的目标字段覆盖到表单（不覆盖用户已手动编辑的字段） */
+function applyMemoryToForm(memory: ExamMemory) {
+  // 考试级字段 — 仅在未手动编辑时回填
+  if (!touchedExamFields.value.has('current_target_score') && memory.current_target_score != null) {
+    formData.value.current_target_score = memory.current_target_score
+  }
+  if (!touchedExamFields.value.has('next_target_score') && memory.next_target_score != null) {
+    formData.value.next_target_score = memory.next_target_score
+  }
+  if (!touchedExamFields.value.has('total_time') && memory.total_time != null) {
+    formData.value.total_time = memory.total_time
+  }
+
+  // 板块级字段 — sections 在分类切换时重建，无需 touched 检查
+  for (const section of formData.value.sections) {
+    const memSec = memory.sections[section.section_name]
+    if (memSec) {
+      if (memSec.next_target_accuracy != null) {
+        section.next_target_accuracy = memSec.next_target_accuracy
+      }
+      if (memSec.next_target_time != null) {
+        section.next_target_time = memSec.next_target_time
+      }
+    }
+  }
+}
+
 function createEmptyForm(): ExamFormData {
   return {
     exam_id: 0,
@@ -90,21 +135,99 @@ function createEmptyForm(): ExamFormData {
     total_time: 90,
     notes: null,
     sections: buildDefaultSections('省考'),
+    wrong_questions: [],
+    speed_questions: [],
+    fast_correct_questions: [],
   }
 }
 
 watch(
   () => formData.value.exam_type_1,
-  (newVal, oldVal) => {
+  async (newVal, oldVal) => {
     if (isEdit.value || !oldVal) return
-    if (newVal === '国考') {
-      formData.value.total_time = 120
-      formData.value.sections = buildDefaultSections('国考')
-    } else if (newVal === '省考') {
-      formData.value.total_time = 90
-      formData.value.sections = buildDefaultSections('省考')
+
+    // 1. 重建默认板块（沿用系统固定预设值）
+    const newSections = buildDefaultSections(newVal)
+    const defaultTotalTime = newVal === '国考' ? 120 : 90
+
+    // 2. 应用考试级默认值（不覆盖用户已手动编辑的字段）
+    if (!touchedExamFields.value.has('total_time')) {
+      formData.value.total_time = defaultTotalTime
     }
+    // current_target_score / next_target_score 不在系统预设中，切换分类时不动
+
+    // 3. 加载历史记忆，覆盖默认值（不覆盖用户已手动编辑的字段）
+    const memory = await getMemory(newVal)
+    if (memory) {
+      // 考试级字段
+      if (!touchedExamFields.value.has('current_target_score') && memory.current_target_score != null) {
+        formData.value.current_target_score = memory.current_target_score
+      }
+      if (!touchedExamFields.value.has('next_target_score') && memory.next_target_score != null) {
+        formData.value.next_target_score = memory.next_target_score
+      }
+      if (!touchedExamFields.value.has('total_time') && memory.total_time != null) {
+        formData.value.total_time = memory.total_time
+      }
+
+      // 板块级目标字段 — 按板块名称匹配
+      for (const section of newSections) {
+        const memSec = memory.sections[section.section_name]
+        if (memSec) {
+          if (memSec.next_target_accuracy != null) {
+            section.next_target_accuracy = memSec.next_target_accuracy
+          }
+          if (memSec.next_target_time != null) {
+            section.next_target_time = memSec.next_target_time
+          }
+        }
+      }
+    }
+
+    // 4. 更新为新的板块列表，重置所有复盘题目
+    formData.value.sections = newSections
+    formData.value.wrong_questions = []
+    formData.value.speed_questions = []
+    formData.value.fast_correct_questions = []
+
+    // 5. 重置 touched 追踪（新分类下用户尚未编辑任何考试级字段）
+    touchedExamFields.value.clear()
   }
+)
+
+// 板块重命名/删除时，同步错题数据
+watch(
+  () => formData.value.sections,
+  (newSections, oldSections) => {
+    if (!oldSections || oldSections.length === 0) return
+
+    // 检测一级板块重命名（通过 client_id 匹配）
+    const renameMap = new Map<string, string>()
+    for (const old of oldSections) {
+      if (old.parent_section_name) continue // 只关心一级板块
+      const matched = newSections.find((s) => s.client_id === old.client_id)
+      if (matched && matched.section_name !== old.section_name) {
+        renameMap.set(old.section_name, matched.section_name)
+      }
+    }
+
+    // 检测一级板块删除
+    const newParentNames = new Set(
+      newSections.filter((s) => !s.parent_section_name).map((s) => s.section_name)
+    )
+
+    if (renameMap.size > 0 || newParentNames.size < newSections.filter((s) => !s.parent_section_name).length) {
+      // 同步三个 Tab 的复盘题目数据
+      const sync = (list: typeof formData.value.wrong_questions) =>
+        list
+          .map((q) => renameMap.has(q.section_name) ? { ...q, section_name: renameMap.get(q.section_name)! } : q)
+          .filter((q) => newParentNames.has(q.section_name))
+      formData.value.wrong_questions = sync(formData.value.wrong_questions)
+      formData.value.speed_questions = sync(formData.value.speed_questions)
+      formData.value.fast_correct_questions = sync(formData.value.fast_correct_questions)
+    }
+  },
+  { deep: true }
 )
 
 onMounted(async () => {
@@ -145,12 +268,39 @@ onMounted(async () => {
             next_target_time: s.next_target_time,
             next_target_efficiency: s.next_target_efficiency,
           })),
+          wrong_questions: examStore.currentWrongQuestions.map((q) => ({
+            client_id: `edit-wq-${q.id}`, id: q.id,
+            section_name: q.section_name, question_number: q.question_number,
+            time_spent: q.time_spent, knowledge_point: q.knowledge_point,
+            analysis: q.analysis, improvement_plan: q.improvement_plan,
+            solving_insight: '',
+          })),
+          speed_questions: examStore.currentSpeedQuestions.map((q) => ({
+            client_id: `edit-sq-${q.id}`, id: q.id,
+            section_name: q.section_name, question_number: q.question_number,
+            time_spent: q.time_spent, knowledge_point: q.knowledge_point,
+            analysis: q.analysis, improvement_plan: q.improvement_plan,
+            solving_insight: '',
+          })),
+          fast_correct_questions: examStore.currentFastCorrectQuestions.map((q) => ({
+            client_id: `edit-fq-${q.id}`, id: q.id,
+            section_name: q.section_name, question_number: q.question_number,
+            time_spent: q.time_spent, knowledge_point: q.knowledge_point,
+            analysis: '', improvement_plan: '',
+            solving_insight: q.solving_insight,
+          })),
         }
       }
     } catch (e) {
       message.error('加载考试数据失败: ' + String(e))
     } finally {
       loading.value = false
+    }
+  } else {
+    // 新建考试：尝试加载该分类的历史记忆
+    const memory = await getMemory(formData.value.exam_type_1)
+    if (memory) {
+      applyMemoryToForm(memory)
     }
   }
 })
@@ -198,6 +348,25 @@ async function handleSave() {
       await examStore.createExam(formData.value)
       message.success('考试记录已保存')
     }
+
+    // 提交成功后，更新该分类的历史记忆（供下次新建时回填）
+    const fd = formData.value
+    const sectionMemory: ExamMemory['sections'] = {}
+    for (const s of fd.sections) {
+      if (s.next_target_accuracy != null || s.next_target_time != null) {
+        sectionMemory[s.section_name] = {
+          next_target_accuracy: s.next_target_accuracy ?? null,
+          next_target_time: s.next_target_time ?? null,
+        }
+      }
+    }
+    saveMemory(fd.exam_type_1, {
+      current_target_score: fd.current_target_score,
+      next_target_score: fd.next_target_score,
+      total_time: fd.total_time,
+      sections: sectionMemory,
+    })
+
     router.push('/exams')
   } catch (e) {
     message.error('保存失败: ' + String(e))
@@ -226,13 +395,23 @@ function handleCancel() {
 
       <!-- 考试基本信息表单 -->
       <NCard style="margin-bottom: 16px">
-        <ExamForm v-model="formData" />
+        <ExamForm v-model="formData" :on-field-touch="markTouched" />
       </NCard>
 
       <!-- 板块成绩表 -->
       <NCard title="板块成绩">
         <SectionTable
           v-model:sections="formData.sections"
+        />
+      </NCard>
+
+      <!-- 复盘题目模块（三Tab统一管理） -->
+      <NCard title="题目复盘" style="margin-top: 16px">
+        <ReviewTabs
+          v-model:wrong-questions="formData.wrong_questions"
+          v-model:speed-questions="formData.speed_questions"
+          v-model:fast-correct-questions="formData.fast_correct_questions"
+          :parent-section-names="parentSectionNames"
         />
       </NCard>
 

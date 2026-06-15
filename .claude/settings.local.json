@@ -20,7 +20,11 @@
       "Bash(taskkill /F /PID 20576)",
       "Bash(taskkill /F /PID 23868)",
       "Bash(powershell -Command \"Get-Process -Id 20576,23868 | Select-Object Id,ProcessName,Path\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(pnpm --version)",
+      "Bash(git commit *)"
     ]
   }
 }

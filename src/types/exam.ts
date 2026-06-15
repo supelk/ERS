@@ -76,6 +76,10 @@ export interface ExamFormData {
   notes: string | null
   // 板块列表
   sections: ExamSectionFormData[]
+  // 复盘题目列表（三个 Tab）
+  wrong_questions: ReviewQuestionFormData[]
+  speed_questions: ReviewQuestionFormData[]
+  fast_correct_questions: ReviewQuestionFormData[]
 }
 
 export interface ExamSectionFormData {
@@ -94,6 +98,43 @@ export interface ExamSectionFormData {
   next_target_accuracy: number | null
   next_target_time: number | null
   next_target_efficiency: number | null
+}
+
+// ============================================================
+// 复盘题目类型
+// ============================================================
+export type ReviewQuestionType = 'wrong' | 'speed' | 'fast'
+
+// ============================================================
+// 复盘题目记录（DB 查询结果 / 前端表单共用字段）
+// ============================================================
+export interface ReviewQuestionRecord {
+  id: number
+  exam_id: number
+  question_type: ReviewQuestionType
+  section_name: string
+  question_number: string
+  time_spent: number | null
+  knowledge_point: string
+  analysis: string
+  improvement_plan: string
+  solving_insight: string
+  sort_order: number
+}
+
+// ============================================================
+// 复盘题目（前端表单用）
+// ============================================================
+export interface ReviewQuestionFormData {
+  client_id: string               // 客户端临时 ID
+  id: number                      // 0 表示新增
+  section_name: string            // 所属一级板块名称
+  question_number: string         // 题号（字符串，支持 "5" / "5-8" 等灵活输入）
+  time_spent: number | null       // 单题用时（分钟）
+  knowledge_point: string         // 考点
+  analysis: string                // 分析评价（错因复盘）
+  improvement_plan: string        // 下一步计划（改进方案）
+  solving_insight: string         // 破题点与解题思路（仅「又快又对的题」使用）
 }
 
 // ============================================================

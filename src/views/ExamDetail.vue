@@ -8,6 +8,7 @@ import SummaryStats from '@/components/analysis/SummaryStats.vue'
 import ComparisonCard from '@/components/analysis/ComparisonCard.vue'
 import ScorePieChart from '@/components/analysis/ScorePieChart.vue'
 import AccuracyBarChart from '@/components/analysis/AccuracyBarChart.vue'
+import ReviewTabs from '@/components/exam/ReviewTabs.vue'
 import type { ExamSectionRecord, SectionComparison, TimeDistribution } from '@/types/exam'
 import { formatPercent, formatNumber, formatDate } from '@/utils/formatters'
 
@@ -55,6 +56,24 @@ const parentSections = computed(() =>
 function childrenOf(parentName: string): ExamSectionRecord[] {
   return examStore.currentSections.filter((s) => s.parent_section_name === parentName)
 }
+
+// 复盘题目数据（转为组件所需的表单格式）
+function toFormData(list: typeof examStore.currentWrongQuestions) {
+  return list.map((q) => ({
+    client_id: `detail-${q.id}`,
+    id: q.id,
+    section_name: q.section_name,
+    question_number: q.question_number,
+    time_spent: q.time_spent,
+    knowledge_point: q.knowledge_point,
+    analysis: q.analysis,
+    improvement_plan: q.improvement_plan,
+    solving_insight: q.solving_insight,
+  }))
+}
+const detailWrongQuestions = computed(() => toFormData(examStore.currentWrongQuestions))
+const detailSpeedQuestions = computed(() => toFormData(examStore.currentSpeedQuestions))
+const detailFastCorrectQuestions = computed(() => toFormData(examStore.currentFastCorrectQuestions))
 
 // 汇总（仅一级板块，与 analysis store 保持一致）
 const parentSummary = computed(() => {
@@ -179,6 +198,16 @@ const parentSummary = computed(() => {
             <span class="hier-col num-col">--</span>
           </div>
         </div>
+
+        <!-- 题目复盘（三Tab只读展示） -->
+        <div class="section-label">题目复盘</div>
+        <ReviewTabs
+          :wrong-questions="detailWrongQuestions"
+          :speed-questions="detailSpeedQuestions"
+          :fast-correct-questions="detailFastCorrectQuestions"
+          :parent-section-names="parentSections.map(s => s.section_name)"
+          :readonly="true"
+        />
 
         <!-- 问题汇总（层级结构） -->
         <div class="section-label">问题汇总</div>
@@ -367,4 +396,5 @@ const parentSummary = computed(() => {
   padding: 32px 0;
   font-size: 14px;
 }
+
 </style>

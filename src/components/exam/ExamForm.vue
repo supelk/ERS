@@ -17,11 +17,17 @@ import {
 
 const props = defineProps<{
   modelValue: ExamFormData
+  /** 用户手动编辑记忆相关字段时回调，用于记忆回填的「不覆盖已填字段」逻辑 */
+  onFieldTouch?: (field: string) => void
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: ExamFormData]
 }>()
+
+function notifyTouch(field: string) {
+  props.onFieldTouch?.(field)
+}
 
 function emitUpdate(patch: Partial<ExamFormData>) {
   emit('update:modelValue', { ...props.modelValue, ...patch })
@@ -56,7 +62,8 @@ const gridProps: GridProps = { cols: 24, xGap: 16 }
             :value="modelValue.exam_date ? new Date(modelValue.exam_date).getTime() : null"
             @update:value="(v: number | null) => {
               const d = v ? new Date(v) : new Date()
-              emitUpdate({ exam_date: d.toISOString().split('T')[0] })
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+              emitUpdate({ exam_date: dateStr })
             }"
             type="date"
             style="width: 100%"
@@ -117,7 +124,7 @@ const gridProps: GridProps = { cols: 24, xGap: 16 }
         <NFormItemGi label="总用时(分)" label-placement="top">
           <NInputNumber
             :value="modelValue.total_time"
-            @update:value="(v: number | null) => emitUpdate({ total_time: v })"
+            @update:value="(v: number | null) => { notifyTouch('total_time'); emitUpdate({ total_time: v }) }"
             :min="0"
             placeholder="分钟"
           />
@@ -131,7 +138,7 @@ const gridProps: GridProps = { cols: 24, xGap: 16 }
         <NFormItemGi label="现阶段目标分" label-placement="top">
           <NInputNumber
             :value="modelValue.current_target_score"
-            @update:value="(v: number | null) => emitUpdate({ current_target_score: v })"
+            @update:value="(v: number | null) => { notifyTouch('current_target_score'); emitUpdate({ current_target_score: v }) }"
             :min="0"
             placeholder="如 65"
           />
@@ -143,7 +150,7 @@ const gridProps: GridProps = { cols: 24, xGap: 16 }
         <NFormItemGi label="下阶段目标分" label-placement="top">
           <NInputNumber
             :value="modelValue.next_target_score"
-            @update:value="(v: number | null) => emitUpdate({ next_target_score: v })"
+            @update:value="(v: number | null) => { notifyTouch('next_target_score'); emitUpdate({ next_target_score: v }) }"
             :min="0"
             placeholder="如 75"
           />

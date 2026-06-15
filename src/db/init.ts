@@ -70,6 +70,34 @@ export async function initDatabase(db: Database): Promise<void> {
   }
 
   // ============================================================
+  // 复盘题目表（统一存储：做错的题 / 做对但慢的题 / 又快又对的题）
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS review_question_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exam_id INTEGER NOT NULL,
+      question_type TEXT NOT NULL CHECK(question_type IN ('wrong','speed','fast')),
+      section_name TEXT NOT NULL,
+      question_number TEXT NOT NULL DEFAULT '',
+      time_spent REAL,
+      knowledge_point TEXT NOT NULL DEFAULT '',
+      analysis TEXT NOT NULL DEFAULT '',
+      improvement_plan TEXT NOT NULL DEFAULT '',
+      solving_insight TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (exam_id) REFERENCES exam_records(exam_id) ON DELETE CASCADE
+    )
+  `)
+
+  // 迁移：删除旧的 wrong_question_records 表（如存在）
+  try {
+    await db.execute('DROP TABLE IF EXISTS wrong_question_records')
+    console.log('[DB] Migration: dropped old wrong_question_records table')
+  } catch {
+    // 忽略
+  }
+
+  // ============================================================
   // 练习任务表
   // ============================================================
   await db.execute(`

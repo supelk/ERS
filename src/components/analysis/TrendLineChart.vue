@@ -8,6 +8,10 @@ const props = defineProps<{
   xLabels: string[]
   series: { name: string; data: number[] }[]
   yAxisName?: string
+  /** Y 轴最大值，不传则自动计算 */
+  yMax?: number
+  /** Y 轴最小值，默认 0 */
+  yMin?: number
 }>()
 
 const appStore = useAppStore()
@@ -26,8 +30,8 @@ const getOption = computed(() => ({
   yAxis: {
     type: 'value' as const,
     name: props.yAxisName || '',
-    min: 0,
-    max: 100,
+    ...(props.yMin != null ? { min: props.yMin } : { min: 0 }),
+    ...(props.yMax != null ? { max: props.yMax } : {}),
     axisLabel: { fontSize: 11, color: '#9CA3AF' },
   },
   series: props.series.map((s) => ({

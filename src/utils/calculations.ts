@@ -40,3 +40,56 @@ export function compareToTarget(actual: number, target: number | null | undefine
   if (target == null) return null
   return actual - target
 }
+
+// ============================================================
+// Y 轴动态范围计算
+// ============================================================
+
+export interface YRange {
+  min: number
+  max: number
+}
+
+/**
+ * 根据数据点动态计算 Y 轴范围
+ * - 上下各预留 10% 留白
+ * - 最小值 ≥ 0
+ * - 数据全为 0 → [0, 10]
+ * - 所有值相同 → ±10% 围绕该值
+ * - 跨度 < 5 → 按最小跨度 5 计算留白
+ */
+export function computeYRange(data: number[]): YRange {
+  if (data.length === 0) return { min: 0, max: 10 }
+
+  const minData = Math.min(...data)
+  const maxData = Math.max(...data)
+  const span = maxData - minData
+
+  // 全 0
+  if (minData === 0 && maxData === 0) return { min: 0, max: 10 }
+
+  // 所有值相同（非 0 常数）
+  if (span === 0) {
+    const pad = Math.abs(minData) * 0.1 || 1
+    return { min: Math.max(0, minData - pad), max: maxData + pad }
+  }
+
+  // 跨度极小（< 5），按最小跨度 5 计算
+  const effectiveSpan = span < 5 ? 5 : span
+  const pad = effectiveSpan * 0.1
+
+  return {
+    min: Math.max(0, minData - pad),
+    max: maxData + pad,
+  }
+}
+
+/**
+ * 从多个系列的 TrendPoint 数组中提取所有 value，计算 Y 轴范围
+ */
+export function computeYRangeFromTrends(
+  trends: { dataPoints: { value: number }[] }[],
+): YRange {
+  const allValues = trends.flatMap((t) => t.dataPoints.map((p) => p.value))
+  return computeYRange(allValues)
+}

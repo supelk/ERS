@@ -6,6 +6,8 @@ import type {
   ExamSectionRecord,
   ExamFormData,
   ExamFilters,
+  ReviewQuestionRecord,
+  ReviewQuestionType,
 } from '@/types/exam'
 
 export const useExamStore = defineStore('exam', () => {
@@ -15,6 +17,9 @@ export const useExamStore = defineStore('exam', () => {
   const exams = ref<ExamRecord[]>([])
   const currentExam = ref<ExamRecord | null>(null)
   const currentSections = ref<ExamSectionRecord[]>([])
+  const currentWrongQuestions = ref<ReviewQuestionRecord[]>([])
+  const currentSpeedQuestions = ref<ReviewQuestionRecord[]>([])
+  const currentFastCorrectQuestions = ref<ReviewQuestionRecord[]>([])
   const loading = ref(false)
   const filters = ref<ExamFilters>({})
 
@@ -62,6 +67,22 @@ export const useExamStore = defineStore('exam', () => {
       next_target_accuracy: r.next_target_accuracy,
       next_target_time: r.next_target_time,
       next_target_efficiency: r.next_target_efficiency,
+    }))
+  }
+
+  function parseReviewQuestions(rows: any[]): ReviewQuestionRecord[] {
+    return rows.map((r) => ({
+      id: r.id,
+      exam_id: r.exam_id,
+      question_type: r.question_type as ReviewQuestionType,
+      section_name: r.section_name,
+      question_number: r.question_number,
+      time_spent: r.time_spent ?? null,
+      knowledge_point: r.knowledge_point,
+      analysis: r.analysis,
+      improvement_plan: r.improvement_plan,
+      solving_insight: r.solving_insight,
+      sort_order: r.sort_order,
     }))
   }
 
@@ -119,8 +140,49 @@ export const useExamStore = defineStore('exam', () => {
         [examId]
       )
       currentSections.value = parseSections(sectionRows)
+
+      const wqRows = await db.select<any[]>(
+        "SELECT * FROM review_question_records WHERE exam_id = $1 AND question_type = 'wrong' ORDER BY sort_order, id",
+        [examId]
+      )
+      currentWrongQuestions.value = parseReviewQuestions(wqRows)
+
+      const sqRows = await db.select<any[]>(
+        "SELECT * FROM review_question_records WHERE exam_id = $1 AND question_type = 'speed' ORDER BY sort_order, id",
+        [examId]
+      )
+      currentSpeedQuestions.value = parseReviewQuestions(sqRows)
+
+      const fqRows = await db.select<any[]>(
+        "SELECT * FROM review_question_records WHERE exam_id = $1 AND question_type = 'fast' ORDER BY sort_order, id",
+        [examId]
+      )
+      currentFastCorrectQuestions.value = parseReviewQuestions(fqRows)
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 插入复盘题目（跳过全空行） */
+  async function insertReviewQuestions(
+    db: ReturnType<typeof getDb>,
+    examId: number,
+    questionType: ReviewQuestionType,
+    questions: ExamFormData['wrong_questions'],
+  ) {
+    let order = 0
+    for (const q of questions) {
+      if (!q.question_number.trim() && !q.knowledge_point.trim() && !q.analysis.trim() && !q.improvement_plan.trim() && !q.solving_insight.trim()) {
+        continue
+      }
+      await db.execute(
+        `INSERT INTO review_question_records
+          (exam_id, question_type, section_name, question_number, time_spent,
+           knowledge_point, analysis, improvement_plan, solving_insight, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [examId, questionType, q.section_name, q.question_number, q.time_spent,
+         q.knowledge_point, q.analysis, q.improvement_plan, q.solving_insight, order++],
+      )
     }
   }
 
@@ -146,7 +208,8 @@ export const useExamStore = defineStore('exam', () => {
           data.notes,
         ]
       )
-      const examId = result.lastInsertId
+      const examId = result.lastInsertId!
+      if (examId == null) throw new Error('Failed to get lastInsertId')
 
       // Insert sections
       for (const s of data.sections) {
@@ -174,6 +237,11 @@ export const useExamStore = defineStore('exam', () => {
           ]
         )
       }
+
+      // Insert review questions for all three tabs
+      await insertReviewQuestions(db, examId, 'wrong', data.wrong_questions)
+      await insertReviewQuestions(db, examId, 'speed', data.speed_questions)
+      await insertReviewQuestions(db, examId, 'fast', data.fast_correct_questions)
 
       await db.execute('COMMIT')
       // Refresh list
@@ -281,6 +349,15 @@ export const useExamStore = defineStore('exam', () => {
         }
       }
 
+      // Review questions: delete old, re-insert for all three types
+      await db.execute(
+        'DELETE FROM review_question_records WHERE exam_id = $1',
+        [data.exam_id]
+      )
+      await insertReviewQuestions(db, data.exam_id, 'wrong', data.wrong_questions)
+      await insertReviewQuestions(db, data.exam_id, 'speed', data.speed_questions)
+      await insertReviewQuestions(db, data.exam_id, 'fast', data.fast_correct_questions)
+
       await db.execute('COMMIT')
       await fetchExams()
       // Refresh current exam if viewing it
@@ -366,6 +443,9 @@ export const useExamStore = defineStore('exam', () => {
     exams,
     currentExam,
     currentSections,
+    currentWrongQuestions,
+    currentSpeedQuestions,
+    currentFastCorrectQuestions,
     loading,
     filters,
     filteredExams,
