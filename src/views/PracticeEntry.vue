@@ -17,7 +17,7 @@ import { usePracticeStore } from '@/stores/practice'
 import { useDatabaseStore } from '@/stores/database'
 import type { PracticeFormData } from '@/types/exam'
 import { todayStr, formatPercent } from '@/utils/formatters'
-import { PARENT_SECTIONS } from '@/utils/constants'
+import { ALL_SECTIONS } from '@/utils/constants'
 
 const router = useRouter()
 const route = useRoute()
@@ -147,7 +147,7 @@ function handleCancel() {
               <label class="form-label">练习板块 *</label>
               <NSelect
                 v-model:value="formData.section_name"
-                :options="PARENT_SECTIONS"
+                :options="ALL_SECTIONS"
                 placeholder="选择练习板块"
               />
             </div>
