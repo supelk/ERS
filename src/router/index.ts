@@ -26,6 +26,24 @@ const router = createRouter({
       meta: { title: '考试详情', hidden: true },
     },
     {
+      path: '/practice',
+      name: 'PracticeHome',
+      component: () => import('@/views/PracticeHome.vue'),
+      meta: { title: '专项练习', icon: 'fitness' },
+    },
+    {
+      path: '/practice/new',
+      name: 'PracticeEntry',
+      component: () => import('@/views/PracticeEntry.vue'),
+      meta: { title: '录入练习', hidden: true },
+    },
+    {
+      path: '/practice/:id',
+      name: 'PracticeDetail',
+      component: () => import('@/views/PracticeDetail.vue'),
+      meta: { title: '练习详情', hidden: true },
+    },
+    {
       path: '/trends',
       name: 'TrendAnalysis',
       component: () => import('@/views/TrendAnalysis.vue'),

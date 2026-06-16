@@ -20,6 +20,17 @@ const AddIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fi
   h('line', { x1: 8, y1: 12, x2: 16, y2: 12 }),
 ])
 
+const PracticeIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('circle', { cx: 6, cy: 6, r: 1 }),
+  h('circle', { cx: 6, cy: 18, r: 1 }),
+  h('circle', { cx: 18, cy: 6, r: 1 }),
+  h('circle', { cx: 18, cy: 18, r: 1 }),
+  h('line', { x1: 7, y1: 6, x2: 17, y2: 6 }),
+  h('line', { x1: 7, y1: 18, x2: 17, y2: 18 }),
+  h('line', { x1: 6, y1: 7, x2: 6, y2: 17 }),
+  h('line', { x1: 18, y1: 7, x2: 18, y2: 17 }),
+])
+
 const ChartIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
   h('polyline', { points: '23 6 13.5 15.5 8.5 10.5 1 18' }),
   h('polyline', { points: '17 6 23 6 23 12' }),
@@ -53,6 +64,7 @@ const appStore = useAppStore()
 const menuOptions: MenuOption[] = [
   { label: '考试记录', key: '/exams', icon: () => h(NIcon, null, { default: ListIcon }) },
   { label: '录入考试', key: '/exams/new', icon: () => h(NIcon, null, { default: AddIcon }) },
+  { label: '专项练习', key: '/practice', icon: () => h(NIcon, null, { default: PracticeIcon }) },
   { label: '趋势分析', key: '/trends', icon: () => h(NIcon, null, { default: ChartIcon }) },
   { label: '目标与计划', key: '/goals', icon: () => h(NIcon, null, { default: FlagIcon }) },
   { label: 'AI 助手', key: '/ai', icon: () => h(NIcon, null, { default: BulbIcon }) },

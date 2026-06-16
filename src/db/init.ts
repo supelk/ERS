@@ -116,6 +116,34 @@ export async function initDatabase(db: Database): Promise<void> {
   `)
 
   // ============================================================
+  // 专项练习记录表（独立于考试模块，支持与任务双向关联）
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS practice_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      section_name TEXT NOT NULL,
+      practice_date TEXT NOT NULL,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      correct_questions INTEGER NOT NULL DEFAULT 0,
+      accuracy REAL GENERATED ALWAYS AS (
+        CASE WHEN total_questions > 0
+          THEN CAST(correct_questions AS REAL) / total_questions * 100
+          ELSE 0 END
+      ) STORED,
+      used_time REAL NOT NULL DEFAULT 0,
+      avg_time_per_question REAL GENERATED ALWAYS AS (
+        CASE WHEN total_questions > 0 AND used_time > 0
+          THEN used_time / CAST(total_questions AS REAL)
+          ELSE 0 END
+      ) STORED,
+      task_id INTEGER,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (task_id) REFERENCES practice_tasks(task_id) ON DELETE SET NULL
+    )
+  `)
+
+  // ============================================================
   // 更新触发器（updated_at 自动更新时间戳）
   // ============================================================
   await db.execute(`

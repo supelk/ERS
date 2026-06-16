@@ -149,6 +149,41 @@ export interface ExamFilters {
 }
 
 // ============================================================
+// 专项练习记录表（独立于考试系统）
+// ============================================================
+export interface PracticeRecord {
+  id: number
+  section_name: string
+  practice_date: string
+  total_questions: number
+  correct_questions: number
+  accuracy: number                    // 自动计算：正确率%
+  used_time: number
+  avg_time_per_question: number       // 自动计算：每题平均用时（分）
+  task_id: number | null
+  notes: string | null
+  created_at?: string
+}
+
+export interface PracticeFormData {
+  id: number                          // 0 表示新增
+  section_name: string
+  practice_date: string
+  total_questions: number
+  correct_questions: number
+  used_time: number
+  task_id: number                     // 0 = 不关联任务
+  notes: string | null
+}
+
+export interface PracticeFilters {
+  keyword?: string
+  section_name?: string
+  date_from?: string
+  date_to?: string
+}
+
+// ============================================================
 // 图表数据接口
 // ============================================================
 export interface TrendPoint {
