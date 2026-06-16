@@ -47,16 +47,12 @@ export interface ExamSectionRecord {
 // ============================================================
 export interface PracticeTask {
   task_id: number
-  section_id: number | null
   task_name: string
-  total_questions: number
-  completed_questions: number
   status: TaskStatus
-  deadline: string | null
   created_at?: string
 }
 
-export type TaskStatus = '未开始' | '进行中' | '已完成' | '逾期'
+export type TaskStatus = '未开始' | '进行中' | '已完成'
 
 // ============================================================
 // 前端表单专用（合并考试 + 板块，用于录入/编辑）
@@ -160,7 +156,6 @@ export interface PracticeRecord {
   accuracy: number                    // 自动计算：正确率%
   used_time: number
   avg_time_per_question: number       // 自动计算：每题平均用时（分）
-  task_id: number | null
   notes: string | null
   created_at?: string
 }
@@ -172,7 +167,6 @@ export interface PracticeFormData {
   total_questions: number
   correct_questions: number
   used_time: number
-  task_id: number                     // 0 = 不关联任务
   notes: string | null
 }
 

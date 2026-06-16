@@ -8,7 +8,6 @@ import {
   NInput,
   NSelect,
   NTag,
-  NText,
   NPopconfirm,
   NEmpty,
   NSpin,
@@ -21,7 +20,6 @@ import {
 } from 'naive-ui'
 import TrendLineChart from '@/components/analysis/TrendLineChart.vue'
 import { usePracticeStore } from '@/stores/practice'
-import { useDatabaseStore } from '@/stores/database'
 import type { PracticeRecord } from '@/types/exam'
 import { formatDate, formatPercent, formatNumber } from '@/utils/formatters'
 import { PARENT_SECTIONS } from '@/utils/constants'
@@ -30,7 +28,6 @@ import { computeYRange } from '@/utils/calculations'
 const router = useRouter()
 const message = useMessage()
 const practiceStore = usePracticeStore()
-const dbStore = useDatabaseStore()
 
 const loading = ref(true)
 const searchKeyword = ref('')
@@ -38,7 +35,6 @@ const filterSection = ref('')
 const page = ref(1)
 const pageSize = 20
 
-// 趋势数据
 const trendFilterSection = ref('')
 const trends = ref<{
   xLabels: string[]
@@ -53,9 +49,6 @@ const trends = ref<{
 })
 const trendSections = ref<string[]>([])
 
-// 任务名称缓存（task_id -> task_name）
-const taskNameMap = ref<Map<number, string>>(new Map())
-
 const sectionOptions = computed(() => [
   { label: '全部板块', value: '' },
   ...PARENT_SECTIONS,
@@ -66,7 +59,6 @@ const trendSectionOptions = computed(() => [
   ...trendSections.value.map((s) => ({ label: s, value: s })),
 ])
 
-// 筛选后的数据
 const filteredData = computed(() => {
   let list = practiceStore.records
   if (searchKeyword.value) {
@@ -79,13 +71,11 @@ const filteredData = computed(() => {
   return list
 })
 
-// 分页
 const pagedData = computed(() => {
   const start = (page.value - 1) * pageSize
   return filteredData.value.slice(start, start + pageSize)
 })
 
-// 图表数据
 const accuracyChartData = computed(() => ({
   xLabels: trends.value.xLabels,
   series: [{ name: '正确率', data: trends.value.accuracyData.map((v) => parseFloat(v.toFixed(1))) }],
@@ -104,7 +94,6 @@ const totalQuestionsChartData = computed(() => ({
 const avgTimeYRange = computed(() => computeYRange(trends.value.avgTimeData))
 const totalQYRange = computed(() => computeYRange(trends.value.totalQuestionsData))
 
-// 表格列
 const columns: DataTableColumns<PracticeRecord> = [
   {
     title: '练习日期',
@@ -150,34 +139,10 @@ const columns: DataTableColumns<PracticeRecord> = [
   {
     title: '平均用时',
     key: 'avg_time_per_question',
-    width: 95,
+    width: 100,
     align: 'center',
     render(row) {
       return formatNumber(row.avg_time_per_question, 2) + ' 分/题'
-    },
-  },
-  {
-    title: '关联任务',
-    key: 'task_id',
-    width: 130,
-    render(row) {
-      if (row.task_id == null) return h(NText, { depth: 3 }, { default: () => '--' })
-      const tname = taskNameMap.value.get(row.task_id)
-      return h(NTag, {
-        size: 'small',
-        style: {
-          backgroundColor: 'var(--primary-light)',
-          color: 'var(--primary)',
-          border: 'none',
-          borderRadius: '6px',
-          fontWeight: 500,
-          cursor: 'pointer',
-        },
-        onClick: (e: Event) => {
-          e.stopPropagation()
-          router.push('/goals')
-        },
-      }, { default: () => tname || `任务 #${row.task_id}` })
     },
   },
   {
@@ -245,9 +210,6 @@ const columns: DataTableColumns<PracticeRecord> = [
   },
 ]
 
-// ============================================================
-// 数据加载
-// ============================================================
 async function loadTrends() {
   try {
     trends.value = await practiceStore.getTrends(
@@ -255,27 +217,6 @@ async function loadTrends() {
     )
   } catch (e) {
     console.error('Failed to load trends:', e)
-  }
-}
-
-async function loadTaskNames() {
-  if (practiceStore.records.length === 0) return
-  const taskIds = [...new Set(practiceStore.records.filter((r) => r.task_id).map((r) => r.task_id!))]
-  if (taskIds.length === 0) return
-  try {
-    const db = dbStore.getDb()
-    const placeholders = taskIds.map((_, i) => `$${i + 1}`).join(',')
-    const rows = await db.select<any[]>(
-      `SELECT task_id, task_name FROM practice_tasks WHERE task_id IN (${placeholders})`,
-      taskIds,
-    )
-    const map = new Map<number, string>()
-    for (const r of rows) {
-      map.set(r.task_id, r.task_name)
-    }
-    taskNameMap.value = map
-  } catch {
-    // ignore
   }
 }
 
@@ -288,7 +229,6 @@ async function loadAll() {
       loadTrends(),
     ])
     trendSections.value = sections
-    await loadTaskNames()
   } catch (e) {
     message.error('加载失败: ' + String(e))
   } finally {
@@ -304,7 +244,6 @@ watch(trendFilterSection, () => {
 async function handleDelete(id: number) {
   try {
     await practiceStore.deleteRecord(id)
-    await loadTaskNames()
     message.success('已删除')
   } catch (e) {
     message.error('删除失败: ' + String(e))
@@ -319,7 +258,6 @@ function goCreate() {
 <template>
   <div>
     <NSpin :show="loading">
-      <!-- 顶部操作栏 -->
       <div class="top-bar">
         <h2 class="page-title">专项练习</h2>
         <NButton type="primary" size="medium" @click="goCreate">
@@ -328,9 +266,6 @@ function goCreate() {
       </div>
 
       <template v-if="trends.xLabels.length > 0">
-        <!-- ============================================================ -->
-        <!-- 趋势总览区 -->
-        <!-- ============================================================ -->
         <div class="section-label">专项练习趋势</div>
         <div class="trend-filter-bar">
           <span class="filter-label">查看维度：</span>
@@ -380,9 +315,6 @@ function goCreate() {
         </NGrid>
       </template>
 
-      <!-- ============================================================ -->
-      <!-- 练习记录列表区 -->
-      <!-- ============================================================ -->
       <div class="section-label">练习记录</div>
       <div class="filter-bar">
         <div class="filter-left">
@@ -398,12 +330,8 @@ function goCreate() {
             style="width: 140px"
           />
         </div>
-        <NText depth="3" class="record-count">
-          共 {{ filteredData.length }} 条记录
-        </NText>
       </div>
 
-      <!-- 表格 -->
       <div v-if="filteredData.length === 0 && !loading" class="empty-wrap">
         <NEmpty description="暂无专项练习记录">
           <template #extra>
@@ -471,7 +399,6 @@ function goCreate() {
   color: var(--text-secondary);
 }
 
-/* 列表筛选 */
 .filter-bar {
   display: flex;
   align-items: center;
@@ -487,23 +414,17 @@ function goCreate() {
   align-items: center;
   gap: 10px;
 }
-.record-count {
-  font-size: 13px;
-  flex-shrink: 0;
-}
 
 .empty-wrap {
   padding: 60px 0;
 }
 
-/* 分页 */
 .pagination-wrap {
   display: flex;
   justify-content: center;
   margin-top: 20px;
 }
 
-/* 表格行 hover */
 :deep(.n-data-table-tr:hover) {
   background-color: var(--bg-hover) !important;
 }

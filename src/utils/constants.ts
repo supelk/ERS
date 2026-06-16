@@ -163,14 +163,12 @@ export const TASK_STATUS_OPTIONS: { label: string; value: TaskStatus }[] = [
   { label: '未开始', value: '未开始' },
   { label: '进行中', value: '进行中' },
   { label: '已完成', value: '已完成' },
-  { label: '逾期', value: '逾期' },
 ]
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   '未开始': '#9CA3AF',
   '进行中': '#5B8DEF',
   '已完成': '#10B981',
-  '逾期': '#DC2626',
 }
 
 // ============================================================

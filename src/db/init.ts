@@ -98,25 +98,37 @@ export async function initDatabase(db: Database): Promise<void> {
   }
 
   // ============================================================
-  // 练习任务表
+  // 练习任务表（定性方向看板：不定量、不定截止、用户自主判定完成）
   // ============================================================
   await db.execute(`
     CREATE TABLE IF NOT EXISTS practice_tasks (
       task_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      section_id INTEGER,
       task_name TEXT NOT NULL,
-      total_questions INTEGER NOT NULL DEFAULT 0,
-      completed_questions INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT '未开始'
-        CHECK(status IN ('未开始','进行中','已完成','逾期')),
-      deadline TEXT,
-      created_at TEXT DEFAULT (datetime('now','localtime')),
-      FOREIGN KEY (section_id) REFERENCES exam_section_records(section_id) ON DELETE SET NULL
+        CHECK(status IN ('未开始','进行中','已完成')),
+      created_at TEXT DEFAULT (datetime('now','localtime'))
     )
   `)
 
+  // 迁移：清理旧版 practice_tasks 的废弃列（section_id / total_questions / completed_questions / deadline）
+  for (const col of ['section_id', 'total_questions', 'completed_questions', 'deadline']) {
+    try {
+      await db.execute(`ALTER TABLE practice_tasks DROP COLUMN ${col}`)
+      console.log(`[DB] Migration: dropped practice_tasks.${col}`)
+    } catch { /* 列不存在或已删除，忽略 */ }
+  }
+  // 迁移：将存量 '逾期' 状态转为 '进行中'（新模型无逾期概念）
+  try {
+    const result = await db.execute(
+      "UPDATE practice_tasks SET status = '进行中' WHERE status = '逾期'"
+    )
+    if (result.rowsAffected > 0) {
+      console.log(`[DB] Migration: reset ${result.rowsAffected} overdue tasks to 进行中`)
+    }
+  } catch { /* 忽略 */ }
+
   // ============================================================
-  // 专项练习记录表（独立于考试模块，支持与任务双向关联）
+  // 专项练习记录表（独立于考试模块）
   // ============================================================
   await db.execute(`
     CREATE TABLE IF NOT EXISTS practice_records (
@@ -136,12 +148,16 @@ export async function initDatabase(db: Database): Promise<void> {
           THEN used_time / CAST(total_questions AS REAL)
           ELSE 0 END
       ) STORED,
-      task_id INTEGER,
       notes TEXT,
-      created_at TEXT DEFAULT (datetime('now','localtime')),
-      FOREIGN KEY (task_id) REFERENCES practice_tasks(task_id) ON DELETE SET NULL
+      created_at TEXT DEFAULT (datetime('now','localtime'))
     )
   `)
+
+  // 迁移：删除旧版 practice_records 中的 task_id 列
+  try {
+    await db.execute('ALTER TABLE practice_records DROP COLUMN task_id')
+    console.log('[DB] Migration: dropped practice_records.task_id')
+  } catch { /* 列不存在或已删除，忽略 */ }
 
   // ============================================================
   // 更新触发器（updated_at 自动更新时间戳）

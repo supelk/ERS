@@ -1,35 +1,22 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NCard, NButton, NSpace, NSpin, NEmpty, NTag, NText, useMessage } from 'naive-ui'
+import { NCard, NButton, NSpace, NSpin, NEmpty, useMessage } from 'naive-ui'
 import { usePracticeStore } from '@/stores/practice'
-import { useDatabaseStore } from '@/stores/database'
 import { formatDate, formatPercent, formatNumber } from '@/utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const practiceStore = usePracticeStore()
-const dbStore = useDatabaseStore()
 
 const loading = ref(true)
-const taskName = ref<string | null>(null)
 
 onMounted(async () => {
   loading.value = true
   try {
     const id = Number(route.params.id)
     await practiceStore.fetchRecordById(id)
-
-    // 查询关联任务名称
-    if (practiceStore.currentRecord?.task_id) {
-      const db = dbStore.getDb()
-      const rows = await db.select<any[]>(
-        'SELECT task_name FROM practice_tasks WHERE task_id = $1',
-        [practiceStore.currentRecord.task_id],
-      )
-      taskName.value = rows.length > 0 ? rows[0].task_name : null
-    }
   } catch (e) {
     message.error('加载练习详情失败: ' + String(e))
   } finally {
@@ -45,10 +32,6 @@ function goEdit() {
   const id = route.params.id
   router.push(`/practice/new?edit=${id}`)
 }
-
-function goToTask() {
-  router.push('/goals')
-}
 </script>
 
 <template>
@@ -59,7 +42,6 @@ function goToTask() {
       </template>
 
       <template v-if="practiceStore.currentRecord">
-        <!-- 顶栏操作 -->
         <div class="detail-header">
           <div>
             <h2 class="detail-title">{{ practiceStore.currentRecord.section_name }} · 专项练习</h2>
@@ -73,7 +55,6 @@ function goToTask() {
           </NSpace>
         </div>
 
-        <!-- 详情卡片 -->
         <NCard>
           <div class="detail-table">
             <div class="detail-row">
@@ -90,9 +71,7 @@ function goToTask() {
             </div>
             <div class="detail-row alt">
               <span class="detail-label">正确题数</span>
-              <span class="detail-value">
-                {{ practiceStore.currentRecord.correct_questions }}
-              </span>
+              <span class="detail-value">{{ practiceStore.currentRecord.correct_questions }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">正确率</span>
@@ -121,27 +100,6 @@ function goToTask() {
               </span>
             </div>
             <div class="detail-row alt">
-              <span class="detail-label">关联任务</span>
-              <span class="detail-value">
-                <template v-if="practiceStore.currentRecord.task_id && taskName">
-                  <NTag
-                    size="small"
-                    :style="{
-                      backgroundColor: 'var(--primary-light)',
-                      color: 'var(--primary)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                    }"
-                    @click="goToTask()"
-                  >
-                    {{ taskName }}
-                  </NTag>
-                </template>
-                <NText v-else depth="3">--</NText>
-              </span>
-            </div>
-            <div class="detail-row">
               <span class="detail-label">练习备注</span>
               <span class="detail-value">
                 {{ practiceStore.currentRecord.notes || '--' }}

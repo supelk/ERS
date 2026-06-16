@@ -25,7 +25,6 @@ export const usePracticeStore = defineStore('practice', () => {
       accuracy: r.accuracy,
       used_time: r.used_time,
       avg_time_per_question: r.avg_time_per_question,
-      task_id: r.task_id ?? null,
       notes: r.notes ?? null,
       created_at: r.created_at,
     }
@@ -66,15 +65,14 @@ export const usePracticeStore = defineStore('practice', () => {
     const db = getDb()
     const result = await db.execute(
       `INSERT INTO practice_records
-        (section_name, practice_date, total_questions, correct_questions, used_time, task_id, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        (section_name, practice_date, total_questions, correct_questions, used_time, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         data.section_name,
         data.practice_date,
         data.total_questions,
         data.correct_questions,
         data.used_time,
-        data.task_id > 0 ? data.task_id : null,
         data.notes ?? null,
       ]
     )
@@ -91,16 +89,14 @@ export const usePracticeStore = defineStore('practice', () => {
            total_questions = $3,
            correct_questions = $4,
            used_time = $5,
-           task_id = $6,
-           notes = $7
-       WHERE id = $8`,
+           notes = $6
+       WHERE id = $7`,
       [
         data.section_name,
         data.practice_date,
         data.total_questions,
         data.correct_questions,
         data.used_time,
-        data.task_id > 0 ? data.task_id : null,
         data.notes ?? null,
         data.id,
       ]
@@ -170,29 +166,6 @@ export const usePracticeStore = defineStore('practice', () => {
     return rows.map((r) => r.section_name as string)
   }
 
-  // ============================================================
-  // 进行中的任务（供录入表单关联任务下拉）
-  // ============================================================
-  async function getInProgressTaskOptions(): Promise<{ label: string; value: number }[]> {
-    const db = getDb()
-    const rows = await db.select<any[]>(
-      "SELECT task_id, task_name FROM practice_tasks WHERE status = '进行中' ORDER BY created_at DESC"
-    )
-    return rows.map((r) => ({ label: r.task_name, value: r.task_id }))
-  }
-
-  // ============================================================
-  // 按任务查关联的练习记录（供双向联动）
-  // ============================================================
-  async function getRecordsByTaskId(taskId: number): Promise<PracticeRecord[]> {
-    const db = getDb()
-    const rows = await db.select<any[]>(
-      'SELECT * FROM practice_records WHERE task_id = $1 ORDER BY practice_date DESC',
-      [taskId]
-    )
-    return rows.map(rowToRecord)
-  }
-
   return {
     records,
     currentRecord,
@@ -204,7 +177,5 @@ export const usePracticeStore = defineStore('practice', () => {
     deleteRecord,
     getTrends,
     getAvailableSections,
-    getInProgressTaskOptions,
-    getRecordsByTaskId,
   }
 })

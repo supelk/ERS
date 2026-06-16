@@ -36,18 +36,8 @@ const formData = ref<PracticeFormData>({
   total_questions: 0,
   correct_questions: 0,
   used_time: 0,
-  task_id: 0, // 0 = 不关联任务
   notes: null,
 })
-
-const taskOptions = ref<{ label: string; value: number }[]>([])
-
-const NO_TASK_SENTINEL = 0
-
-const linkedTaskOptions = computed(() => [
-  { label: '不关联任务', value: NO_TASK_SENTINEL },
-  ...taskOptions.value,
-])
 
 const previewAccuracy = computed(() => {
   if (!formData.value.total_questions || formData.value.total_questions <= 0) return 0
@@ -63,8 +53,6 @@ const accuracyColor = computed(() => {
 onMounted(async () => {
   loading.value = true
   try {
-    taskOptions.value = await practiceStore.getInProgressTaskOptions()
-
     const editId = route.query.edit ? Number(route.query.edit) : null
     if (editId && editId > 0) {
       isEdit.value = true
@@ -78,7 +66,6 @@ onMounted(async () => {
           total_questions: r.total_questions,
           correct_questions: r.correct_questions,
           used_time: r.used_time,
-          task_id: r.task_id ?? 0,
           notes: r.notes,
         }
       }
@@ -216,14 +203,6 @@ function handleCancel() {
                 :min="0"
                 placeholder="分钟"
                 style="width: 100%"
-              />
-            </div>
-            <div class="form-col">
-              <label class="form-label">关联任务</label>
-              <NSelect
-                v-model:value="formData.task_id"
-                :options="linkedTaskOptions"
-                placeholder="（可选）选择关联的任务"
               />
             </div>
           </div>

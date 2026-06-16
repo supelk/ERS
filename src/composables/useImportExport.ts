@@ -1,5 +1,5 @@
 import { useDatabaseStore } from '@/stores/database'
-import type { ExamRecord, ExamSectionRecord, PracticeTask } from '@/types/exam'
+import type { ExamRecord, ExamSectionRecord } from '@/types/exam'
 
 export interface ExportData {
   version: string
@@ -10,7 +10,6 @@ export interface ExportData {
 export interface ExamExportItem {
   exam: ExamRecord
   sections: ExamSectionRecord[]
-  tasks: PracticeTask[]
 }
 
 /**
@@ -38,17 +37,9 @@ export async function exportToJSON(examIds?: number[]): Promise<ExportData> {
       'SELECT * FROM exam_section_records WHERE exam_id = $1 ORDER BY section_id',
       [exam.exam_id]
     )
-    const taskRows = await db.select<any[]>(
-      `SELECT pt.* FROM practice_tasks pt
-       JOIN exam_section_records esr ON pt.section_id = esr.section_id
-       WHERE esr.exam_id = $1
-       ORDER BY pt.created_at`,
-      [exam.exam_id]
-    )
     exams.push({
       exam: cleanExam(exam),
       sections: sectionRows.map(cleanSection),
-      tasks: taskRows.map(cleanTask),
     })
   }
 
@@ -322,19 +313,6 @@ function cleanSection(r: any): ExamSectionRecord {
     next_target_accuracy: r.next_target_accuracy,
     next_target_time: r.next_target_time,
     next_target_efficiency: r.next_target_efficiency,
-  }
-}
-
-function cleanTask(r: any): PracticeTask {
-  return {
-    task_id: r.task_id,
-    section_id: r.section_id,
-    task_name: r.task_name,
-    total_questions: r.total_questions,
-    completed_questions: r.completed_questions,
-    status: r.status,
-    deadline: r.deadline,
-    created_at: r.created_at,
   }
 }
 

@@ -6,16 +6,14 @@ import type { PracticeTask } from '@/types/exam'
 defineProps<{
   title: string
   tasks: PracticeTask[]
-  sectionLabels: Map<number, string>
   color: string
 }>()
 
 const emit = defineEmits<{
   edit: [task: PracticeTask]
   delete: [task: PracticeTask]
-  advance: [task: PracticeTask]
+  complete: [task: PracticeTask]
 }>()
-
 </script>
 
 <template>
@@ -29,10 +27,9 @@ const emit = defineEmits<{
         v-for="task in tasks"
         :key="task.task_id"
         :task="task"
-        :section-label="task.section_id ? sectionLabels.get(task.section_id) : undefined"
         @edit="emit('edit', task)"
         @delete="emit('delete', task)"
-        @advance="emit('advance', task)"
+        @complete="emit('complete', task)"
       />
       <div v-if="tasks.length === 0" class="column-empty">
         <NText depth="3" style="font-size: 12px">暂无</NText>
