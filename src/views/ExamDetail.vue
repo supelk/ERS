@@ -90,8 +90,12 @@ const hasReviewData = computed(() =>
   detailSpeedQuestions.value.length > 0 ||
   detailFastCorrectQuestions.value.length > 0
 )
-const hasAnalysisData = computed(() =>
-  examStore.currentSections.some((s) => s.analysis || s.plan)
+// 有问题分析内容的一级板块（自身或子板块有 analysis/plan）
+const parentsWithAnalysis = computed(() =>
+  parentSections.value.filter((p) => {
+    if (p.analysis || p.plan) return true
+    return childrenOf(p.section_name).some((c) => c.analysis || c.plan)
+  })
 )
 </script>
 
@@ -221,10 +225,10 @@ const hasAnalysisData = computed(() =>
         />
         </template>
 
-        <!-- 问题汇总（层级结构） -->
-        <template v-if="hasAnalysisData">
+        <!-- 问题汇总（层级结构，仅显示有内容的板块） -->
+        <template v-if="parentsWithAnalysis.length > 0">
         <div class="section-label">问题汇总</div>
-        <template v-for="parent in parentSections" :key="'analysis-' + parent.section_id">
+        <template v-for="parent in parentsWithAnalysis" :key="'analysis-' + parent.section_id">
           <div class="analysis-group">
             <div class="analysis-parent-name">{{ parent.section_name }}</div>
             <!-- 一级板块自身的问题分析 -->
@@ -255,9 +259,6 @@ const hasAnalysisData = computed(() =>
             </NGrid>
           </div>
         </template>
-        <div v-if="!examStore.currentSections.some(s => s.analysis || s.plan)" class="analysis-empty-all">
-          暂无问题分析记录
-        </div>
         </template>
       </template>
     </NSpin>
