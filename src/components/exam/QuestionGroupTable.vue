@@ -46,13 +46,46 @@ function createEmptyQuestion(sectionName: string): ReviewQuestionFormData {
 // 是否为「又快又对的题」模式（仅显示 破题点与解题思路，不显示分析评价/下一步计划）
 const isFastMode = computed(() => props.mode === 'fast')
 
-// 按板块分组
+// ============================================================
+// 只读模式：合并为单表格，仅展示有记录的板块
+// ============================================================
+interface FlatQuestion {
+  sectionName: string
+  question: ReviewQuestionFormData
+  isFirstInSection: boolean  // 板块列首行标记
+  sectionRowSpan: number      // 该板块总行数（用于视觉合并）
+}
+
+const mergedQuestions = computed<FlatQuestion[]>(() => {
+  if (!props.readonly) return []
+  const result: FlatQuestion[] = []
+  // 按 parentSectionNames 顺序遍历，过滤空板块
+  for (const secName of props.parentSectionNames) {
+    const qs = props.questions.filter((q) => q.section_name === secName)
+    if (qs.length === 0) continue
+    qs.forEach((q, i) => {
+      result.push({
+        sectionName: secName,
+        question: q,
+        isFirstInSection: i === 0,
+        sectionRowSpan: qs.length,
+      })
+    })
+  }
+  return result
+})
+
+// 是否有任何记录
+const hasAnyRecords = computed(() => mergedQuestions.value.length > 0)
+
+// 编辑模式按板块分组
 interface RqGroup {
   sectionName: string
   questions: ReviewQuestionFormData[]
 }
 
 const grouped = computed<RqGroup[]>(() => {
+  if (props.readonly) return []
   const map = new Map<string, ReviewQuestionFormData[]>()
   for (const q of props.questions) {
     const list = map.get(q.section_name)
@@ -95,12 +128,78 @@ function updateQuestion(clientId: string, patch: Partial<ReviewQuestionFormData>
       <span v-if="hint" class="rq-hint">{{ hint }}</span>
     </div>
 
-    <!-- 空状态 -->
-    <div v-if="parentSectionNames.length === 0" class="rq-empty">
-      <NEmpty description="请先添加板块成绩" size="small" />
-    </div>
+    <!-- ============================================================ -->
+    <!-- 只读模式：合并单表格 -->
+    <!-- ============================================================ -->
+    <template v-if="readonly">
+      <!-- 全局空状态 -->
+      <div v-if="!hasAnyRecords" class="rq-empty">
+        <NEmpty description="暂无记录" size="small" />
+      </div>
 
-    <!-- 按板块分组 -->
+      <!-- 统一表格 -->
+      <div v-else class="rq-merged-table">
+        <!-- 全局表头 -->
+        <div class="rq-row rq-head-row">
+          <span class="rq-col merged-section-col">板块</span>
+          <span class="rq-col qnum-col">题号</span>
+          <span class="rq-col time-col">用时(分)</span>
+          <span class="rq-col point-col">考点</span>
+          <template v-if="isFastMode">
+            <span class="rq-col merged-insight-col">破题点与解题思路</span>
+          </template>
+          <template v-else>
+            <span class="rq-col merged-desc-col">分析评价</span>
+            <span class="rq-col merged-desc-col">下一步计划</span>
+          </template>
+        </div>
+
+        <!-- 数据行 -->
+        <div
+          v-for="item in mergedQuestions"
+          :key="item.question.client_id"
+          class="rq-row rq-data-row"
+          :class="{ 'section-first': item.isFirstInSection }"
+        >
+          <!-- 板块列（首行才显示名称，其余留空——视觉合并） -->
+          <span
+            v-if="item.isFirstInSection"
+            class="rq-col merged-section-col merged-section-name"
+            :style="{ gridRow: `span ${item.sectionRowSpan}` }"
+          >
+            {{ item.sectionName }}
+          </span>
+          <span v-else class="rq-col merged-section-col merged-section-filler" />
+
+          <!-- 题号 -->
+          <span class="rq-col qnum-col">{{ item.question.question_number || '--' }}</span>
+
+          <!-- 用时 -->
+          <span class="rq-col time-col">
+            {{ item.question.time_spent != null ? item.question.time_spent + ' 分钟' : '--' }}
+          </span>
+
+          <!-- 考点 -->
+          <span class="rq-col point-col">{{ item.question.knowledge_point || '--' }}</span>
+
+          <!-- 分析评价 + 下一步计划（wrong / speed） -->
+          <template v-if="!isFastMode">
+            <span class="rq-col merged-desc-col">{{ item.question.analysis || '--' }}</span>
+            <span class="rq-col merged-desc-col">{{ item.question.improvement_plan || '--' }}</span>
+          </template>
+
+          <!-- 破题点与解题思路（fast） -->
+          <template v-else>
+            <span class="rq-col merged-insight-col">{{ item.question.solving_insight || '--' }}</span>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============================================================ -->
+    <!-- 编辑模式：按板块分组（保持原有交互不变） -->
+    <!-- ============================================================ -->
+    <template v-else>
     <div v-for="group in grouped" :key="group.sectionName" class="rq-group">
       <div class="rq-group-header">
         <span class="rq-group-name">{{ group.sectionName }}</span>
@@ -198,6 +297,7 @@ function updateQuestion(clientId: string, patch: Partial<ReviewQuestionFormData>
         </NButton>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -214,7 +314,47 @@ function updateQuestion(clientId: string, patch: Partial<ReviewQuestionFormData>
 .rq-hint    { font-size: 12px; color: var(--text-tertiary); }
 .rq-empty   { padding: 24px 0; }
 
-/* 板块分组 */
+/* ============================================================
+   只读模式：合并单表格
+   ============================================================ */
+.rq-merged-table {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+/* 板块列 */
+.merged-section-col { width: 100px; }
+.merged-section-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  justify-content: center;
+  text-align: center;
+  align-self: stretch;
+}
+.merged-section-filler {
+  background: var(--bg-page);
+}
+/* 板块首行的数据列也加浅背景区分 */
+.section-first .qnum-col,
+.section-first .time-col,
+.section-first .point-col {
+  background: var(--bg-page);
+}
+
+/* section 间加粗分隔 */
+.section-first {
+  border-top: 2px solid var(--border-light);
+}
+
+.merged-desc-col   { flex: 1; min-width: 140px; padding-right: 6px; }
+.merged-insight-col { flex: 2; min-width: 280px; padding-right: 6px; }
+
+/* 编辑模式板块分组 */
 .rq-group {
   margin-bottom: 16px;
   border: 1px solid var(--border-light);
@@ -233,7 +373,7 @@ function updateQuestion(clientId: string, patch: Partial<ReviewQuestionFormData>
 .rq-group-name  { font-weight: 700; font-size: 13px; color: var(--text-primary); }
 .rq-group-count { font-size: 11px; color: var(--text-tertiary); }
 
-/* 表格 */
+/* 表格共用 */
 .rq-table    { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .rq-row      { display: flex; align-items: flex-start; border-bottom: 1px solid var(--border-light); min-width: 900px; }
 .rq-head-row { background: var(--bg-page); font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 8px 14px; }
