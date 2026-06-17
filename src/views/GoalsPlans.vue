@@ -141,6 +141,7 @@ async function handleFormSubmit(data: {
       </NCard>
 
       <!-- 任务看板 -->
+      <NCard title="任务看板" size="small" style="margin-bottom: 16px">
         <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-tertiary)">
           看板用于记录方向性任务（定性不定量），由你自己判断何时完成。例如：加强言语理解、巩固资料分析。
         </p>
