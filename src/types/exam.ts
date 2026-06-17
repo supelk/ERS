@@ -178,6 +178,17 @@ export interface PracticeFilters {
 }
 
 // ============================================================
+// 成语积累
+// ============================================================
+export interface IdiomRecord {
+  id: number
+  word: string
+  definition: string
+  notes: string | null
+  created_at?: string
+}
+
+// ============================================================
 // 图表数据接口
 // ============================================================
 export interface TrendPoint {

@@ -56,6 +56,24 @@ const router = createRouter({
       meta: { title: '目标与计划', icon: 'flag' },
     },
     {
+      path: '/idioms',
+      name: 'IdiomHome',
+      component: () => import('@/views/IdiomHome.vue'),
+      meta: { title: '成语积累', icon: 'book' },
+    },
+    {
+      path: '/idioms/new',
+      name: 'IdiomEntry',
+      component: () => import('@/views/IdiomEntry.vue'),
+      meta: { title: '添加成语', hidden: true },
+    },
+    {
+      path: '/idioms/:id',
+      name: 'IdiomDetail',
+      component: () => import('@/views/IdiomDetail.vue'),
+      meta: { title: '成语详情', hidden: true },
+    },
+    {
       path: '/ai',
       name: 'AIAssistant',
       component: () => import('@/views/AIAssistant.vue'),

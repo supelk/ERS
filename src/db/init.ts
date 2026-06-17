@@ -160,6 +160,19 @@ export async function initDatabase(db: Database): Promise<void> {
   } catch { /* 列不存在或已删除，忽略 */ }
 
   // ============================================================
+  // 成语积累表
+  // ============================================================
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS idiom_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      word TEXT NOT NULL,
+      definition TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `)
+
+  // ============================================================
   // 更新触发器（updated_at 自动更新时间戳）
   // ============================================================
   await db.execute(`

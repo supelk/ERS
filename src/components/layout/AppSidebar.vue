@@ -41,6 +41,11 @@ const FlagIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, f
   h('line', { x1: 4, y1: 22, x2: 4, y2: 15 }),
 ])
 
+const BookIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+  h('path', { d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z' }),
+  h('path', { d: 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z' }),
+])
+
 const BulbIcon = () => h('svg', { viewBox: '0 0 24 24', width: 20, height: 20, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
   h('path', { d: 'M9 18h6' }),
   h('path', { d: 'M10 22h4' }),
@@ -67,6 +72,7 @@ const menuOptions: MenuOption[] = [
   { label: '考试记录', key: '/exams', icon: () => h(NIcon, null, { default: ListIcon }) },
   { label: '录入考试', key: '/exams/new', icon: () => h(NIcon, null, { default: AddIcon }) },
   { label: '专项练习', key: '/practice', icon: () => h(NIcon, null, { default: PracticeIcon }) },
+  { label: '成语积累', key: '/idioms', icon: () => h(NIcon, null, { default: BookIcon }) },
   { label: 'AI 助手', key: '/ai', icon: () => h(NIcon, null, { default: BulbIcon }) },
   { label: '设置', key: '/settings', icon: () => h(NIcon, null, { default: SettingsIcon }) },
 ]

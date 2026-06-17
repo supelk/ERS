@@ -7,12 +7,14 @@ import {
   NSwitch,
   NText,
   NPopconfirm,
+  NInput,
   useMessage,
 } from 'naive-ui'
 import { useAppStore } from '@/stores/app'
 import { useDatabaseStore } from '@/stores/database'
 import { useExamStore } from '@/stores/exam'
 import { useTaskStore } from '@/stores/task'
+import { getStoredApiKey, setApiKey } from '@/utils/llm'
 
 const message = useMessage()
 const appStore = useAppStore()
@@ -20,12 +22,19 @@ const dbStore = useDatabaseStore()
 const examStore = useExamStore()
 const taskStore = useTaskStore()
 
+const apiKey = ref(getStoredApiKey())
 const clearingData = ref(false)
+
+function saveApiKey() {
+  setApiKey(apiKey.value)
+  message.success('API Key 已保存')
+}
 
 async function handleClearAllData() {
   clearingData.value = true
   try {
     const db = dbStore.getDb()
+    await db.execute('DELETE FROM idiom_records')
     await db.execute('DELETE FROM practice_tasks')
     await db.execute('DELETE FROM exam_section_records')
     await db.execute('DELETE FROM exam_records')
@@ -49,6 +58,28 @@ async function handleClearAllData() {
       <div class="setting-row">
         <NText>深色模式</NText>
         <NSwitch :value="appStore.isDark" @update:value="appStore.toggleTheme()" />
+      </div>
+    </NCard>
+
+    <!-- API 配置 -->
+    <NCard title="API 配置" size="small" style="margin-bottom: 16px">
+      <div class="setting-row">
+        <div>
+          <NText strong>DeepSeek API Key</NText>
+          <br />
+          <NText depth="3" style="font-size: 12px">用于成语释义、同义词辨析等 AI 功能。Key 仅存储在本地。</NText>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 8px">
+        <NInput
+          :value="apiKey"
+          @update:value="(v: string) => apiKey = v"
+          type="password"
+          show-password-on="click"
+          placeholder="sk-..."
+          style="flex: 1"
+        />
+        <NButton type="primary" size="small" @click="saveApiKey">保存</NButton>
       </div>
     </NCard>
 
