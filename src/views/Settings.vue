@@ -82,7 +82,7 @@ async function handleClearAllData() {
     <!-- 关于 -->
     <NCard title="关于" size="small">
       <div class="about-info">
-        <p><b>考试复盘闭环系统</b> v0.1.0</p>
+        <p><b>考试复盘闭环系统</b> v0.2.0</p>
         <p class="about-desc">
           帮你告别 Excel，高效沉淀每次考试的成长数据。<br />
           从录入 → 分析 → 目标 → 计划，形成完整闭环。

@@ -62,11 +62,11 @@ const route = useRoute()
 const appStore = useAppStore()
 
 const menuOptions: MenuOption[] = [
+  { label: '目标与计划', key: '/goals', icon: () => h(NIcon, null, { default: FlagIcon }) },
+  { label: '趋势分析', key: '/trends', icon: () => h(NIcon, null, { default: ChartIcon }) },
   { label: '考试记录', key: '/exams', icon: () => h(NIcon, null, { default: ListIcon }) },
   { label: '录入考试', key: '/exams/new', icon: () => h(NIcon, null, { default: AddIcon }) },
   { label: '专项练习', key: '/practice', icon: () => h(NIcon, null, { default: PracticeIcon }) },
-  { label: '趋势分析', key: '/trends', icon: () => h(NIcon, null, { default: ChartIcon }) },
-  { label: '目标与计划', key: '/goals', icon: () => h(NIcon, null, { default: FlagIcon }) },
   { label: 'AI 助手', key: '/ai', icon: () => h(NIcon, null, { default: BulbIcon }) },
   { label: '设置', key: '/settings', icon: () => h(NIcon, null, { default: SettingsIcon }) },
 ]
@@ -123,7 +123,7 @@ function handleMenuSelect(key: string) {
     <!-- 底部版本（仅展开态可见） -->
     <transition name="fade-text">
       <div v-show="!appStore.sidebarCollapsed" class="sidebar-footer">
-        <span class="version-text">v0.1</span>
+        <span class="version-text">v0.2</span>
       </div>
     </transition>
   </div>
