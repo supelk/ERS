@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useDatabaseStore } from './database'
-import { getParentSectionName, isParentSection } from '@/utils/constants'
 import type {
   SectionComparison,
   TimeDistribution,
@@ -131,34 +130,21 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
-    // 查询所有板块数据（包括一级和二级），带筛选
+    // 只查一级板块行（避免父+子重复计数）
     const rows = await db.select<any[]>(
-      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.parent_section_name, esr.accuracy
+      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.accuracy
        FROM exam_section_records esr
        JOIN exam_records er ON esr.exam_id = er.exam_id
-       WHERE 1=1 ${filterWhere}
+       WHERE (esr.parent_section_name IS NULL OR esr.parent_section_name = '') ${filterWhere}
        ORDER BY er.exam_date ASC`,
       filterParams
     )
 
-    // 将每条记录映射到其逻辑一级板块：
-    // - 如果有 parent_section_name，用它
-    // - 如果 section_name 本身是一级板块，用它
-    // - 如果 section_name 是二级板块（在层级定义中），查其父级
+    // 每行即是一个一级板块，按考试取平均值
     const parentMap = new Map<string, Map<string, number[]>>()
-    // parentMap: parentName -> (examLabel -> [accuracy values])
 
     for (const row of rows) {
-      let parentName: string
-      if (row.parent_section_name) {
-        parentName = row.parent_section_name
-      } else if (isParentSection(row.section_name)) {
-        parentName = row.section_name
-      } else {
-        const p = getParentSectionName(row.section_name)
-        parentName = p || row.section_name // fallback to itself
-      }
-
+      const parentName = row.section_name
       const label = row.exam_name || row.exam_date
       if (!parentMap.has(parentName)) {
         parentMap.set(parentName, new Map())
@@ -202,26 +188,18 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     const rows = await db.select<any[]>(
-      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.parent_section_name, esr.used_time
+      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.used_time
        FROM exam_section_records esr
        JOIN exam_records er ON esr.exam_id = er.exam_id
-       WHERE 1=1 ${filterWhere}
+       WHERE (esr.parent_section_name IS NULL OR esr.parent_section_name = '') ${filterWhere}
        ORDER BY er.exam_date ASC`,
       params,
     )
 
-    // 分组逻辑同 getAllSectionTrends：映射到一级板块，每场考试取平均值
+    // 每行即是一个一级板块，按考试取平均值
     const parentMap = new Map<string, Map<string, number[]>>()
     for (const row of rows) {
-      let parentName: string
-      if (row.parent_section_name) {
-        parentName = row.parent_section_name
-      } else if (isParentSection(row.section_name)) {
-        parentName = row.section_name
-      } else {
-        const p = getParentSectionName(row.section_name)
-        parentName = p || row.section_name
-      }
+      const parentName = row.section_name
       const label = row.exam_name || row.exam_date
       if (!parentMap.has(parentName)) parentMap.set(parentName, new Map())
       const examMap = parentMap.get(parentName)!
@@ -257,25 +235,17 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     const rows = await db.select<any[]>(
-      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.parent_section_name, esr.score_efficiency
+      `SELECT er.exam_name, er.exam_date, esr.section_name, esr.score_efficiency
        FROM exam_section_records esr
        JOIN exam_records er ON esr.exam_id = er.exam_id
-       WHERE 1=1 ${filterWhere}
+       WHERE (esr.parent_section_name IS NULL OR esr.parent_section_name = '') ${filterWhere}
        ORDER BY er.exam_date ASC`,
       params,
     )
 
     const parentMap = new Map<string, Map<string, number[]>>()
     for (const row of rows) {
-      let parentName: string
-      if (row.parent_section_name) {
-        parentName = row.parent_section_name
-      } else if (isParentSection(row.section_name)) {
-        parentName = row.section_name
-      } else {
-        const p = getParentSectionName(row.section_name)
-        parentName = p || row.section_name
-      }
+      const parentName = row.section_name
       const label = row.exam_name || row.exam_date
       if (!parentMap.has(parentName)) parentMap.set(parentName, new Map())
       const examMap = parentMap.get(parentName)!
@@ -309,15 +279,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
     const rows = await db.select<any[]>(
       `SELECT
-         CASE
-           WHEN esr.parent_section_name IS NOT NULL AND esr.parent_section_name != '' THEN esr.parent_section_name
-           ELSE esr.section_name
-         END as parent_name,
+         esr.section_name as parent_name,
          COUNT(DISTINCT esr.exam_id) as exam_count
        FROM exam_section_records esr
        JOIN exam_records er ON esr.exam_id = er.exam_id
-       WHERE 1=1 ${filterWhere}
-       GROUP BY parent_name
+       WHERE (esr.parent_section_name IS NULL OR esr.parent_section_name = '') ${filterWhere}
+       GROUP BY esr.section_name
        ORDER BY exam_count DESC`,
       params,
     )
