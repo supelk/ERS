@@ -10,7 +10,7 @@ import {
   NEmpty,
   NSpin,
   NModal,
-  NText,
+  NSelect,
   useMessage,
   type DataTableColumns,
 } from 'naive-ui'
@@ -25,11 +25,13 @@ const idiomStore = useIdiomStore()
 const loading = ref(true)
 const searchKeyword = ref('')
 
-// 随机复习闪卡
+// 随机复习
 const showFlashcard = ref(false)
-const flashcardWord = ref('')
-const flashcardDefinition = ref('')
-const flashcardFlipped = ref(false)
+const reviewCount = ref(5)
+const reviewCards = ref<IdiomRecord[]>([])
+const flippedCards = ref<Set<number>>(new Set())
+
+const reviewCountOptions = [5, 10, 15, 20].map((n) => ({ label: `每次 ${n} 个`, value: n }))
 
 const filteredData = computed(() => {
   if (!searchKeyword.value) return idiomStore.records
@@ -162,20 +164,34 @@ function goCreate() {
   router.push('/idioms/new')
 }
 
-async function handleRandomReview() {
+async function loadReviewCards() {
   try {
-    const rec = await idiomStore.getRandomRecord()
-    if (!rec) {
+    const cards = await idiomStore.getRandomRecords(reviewCount.value)
+    if (cards.length === 0) {
       message.warning('还没有成语记录，请先添加')
       return
     }
-    flashcardWord.value = rec.word
-    flashcardDefinition.value = rec.definition
-    flashcardFlipped.value = false
-    showFlashcard.value = true
+    reviewCards.value = cards
+    flippedCards.value = new Set()
   } catch (e) {
     message.error('获取失败: ' + String(e))
   }
+}
+
+async function handleRandomReview() {
+  showFlashcard.value = true
+  await loadReviewCards()
+}
+
+async function nextGroup() {
+  await loadReviewCards()
+}
+
+function toggleCard(cardId: number) {
+  const s = new Set(flippedCards.value)
+  if (s.has(cardId)) s.delete(cardId)
+  else s.add(cardId)
+  flippedCards.value = s
 }
 </script>
 
@@ -220,25 +236,46 @@ async function handleRandomReview() {
       </template>
     </NSpin>
 
-    <!-- 随机复习闪卡 -->
+    <!-- 随机复习 -->
     <NModal
       :show="showFlashcard"
       @update:show="(v: boolean) => showFlashcard = v"
       :mask-closable="true"
+      :style="{ maxWidth: '90vw' }"
     >
-      <div class="flashcard" @click="flashcardFlipped = !flashcardFlipped">
-        <template v-if="!flashcardFlipped">
-          <div class="flashcard-front">
-            <NText depth="3" style="font-size: 13px; margin-bottom: 16px;">点击翻面查看释义</NText>
-            <span class="flashcard-word">{{ flashcardWord }}</span>
+      <div class="review-panel">
+        <div class="review-top">
+          <h3 class="review-title">随机复习</h3>
+          <NSpace :size="12">
+            <NSelect v-model:value="reviewCount" :options="reviewCountOptions" size="small" style="width: 120px" />
+            <NButton size="small" type="primary" @click="nextGroup">下一组</NButton>
+            <NButton size="small" @click="showFlashcard = false">关闭</NButton>
+          </NSpace>
+        </div>
+
+        <div v-if="reviewCards.length === 0" style="text-align: center; padding: 48px 0">
+          <NEmpty description="还没有成语记录" size="small" />
+        </div>
+
+        <div v-else class="review-grid">
+          <div
+            v-for="card in reviewCards"
+            :key="card.id"
+            class="review-card"
+            :class="{ flipped: flippedCards.has(card.id) }"
+            @click="toggleCard(card.id)"
+          >
+            <div class="card-face card-front">
+              <span class="card-word">{{ card.word }}</span>
+              <span class="card-hint">点击翻面</span>
+            </div>
+            <div class="card-face card-back">
+              <span class="card-word-sm">{{ card.word }}</span>
+              <p class="card-def">{{ card.definition }}</p>
+              <p v-if="card.notes" class="card-notes">{{ card.notes }}</p>
+            </div>
           </div>
-        </template>
-        <template v-else>
-          <div class="flashcard-back">
-            <span class="flashcard-word-sm">{{ flashcardWord }}</span>
-            <div class="flashcard-def">{{ flashcardDefinition }}</div>
-          </div>
-        </template>
+        </div>
       </div>
     </NModal>
   </div>
@@ -273,50 +310,100 @@ async function handleRandomReview() {
   padding: 60px 0;
 }
 
-/* 闪卡 */
-.flashcard {
-  width: 380px;
-  min-height: 260px;
-  background: var(--bg-surface);
+/* 复习面板 */
+.review-panel {
+  width: 720px;
+  max-width: 90vw;
+  background: var(--bg-page);
   border-radius: var(--radius-lg);
+  padding: 24px;
   box-shadow: var(--shadow-md);
-  cursor: pointer;
+}
+.review-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 32px;
-  transition: transform 0.2s;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.review-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+/* 闪卡 */
+.review-card {
+  min-height: 160px;
+  perspective: 600px;
+  cursor: pointer;
   user-select: none;
 }
-.flashcard:hover {
-  transform: scale(1.02);
-}
-.flashcard-front,
-.flashcard-back {
+.card-face {
+  width: 100%;
+  min-height: 160px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
-.flashcard-word {
-  font-size: 36px;
+.card-face:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+.card-front {
+  display: flex;
+}
+.card-back {
+  display: none;
+}
+
+.review-card.flipped .card-front { display: none; }
+.review-card.flipped .card-back  { display: flex; }
+
+.card-word {
+  font-size: 26px;
   font-weight: 700;
   color: var(--primary);
   font-family: var(--font-display);
-  letter-spacing: 4px;
+  letter-spacing: 3px;
 }
-.flashcard-word-sm {
-  font-size: 20px;
+.card-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.card-word-sm {
+  font-size: 16px;
   font-weight: 700;
   color: var(--primary);
   font-family: var(--font-display);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
-.flashcard-def {
-  font-size: 14px;
-  line-height: 1.9;
+.card-def {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
   color: var(--text-primary);
   white-space: pre-wrap;
+}
+.card-notes {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 :deep(.n-data-table-tr:hover) {

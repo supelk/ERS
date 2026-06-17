@@ -109,14 +109,14 @@ export const useIdiomStore = defineStore('idiom', () => {
   }
 
   /**
-   * 随机抽取一条记录（用于复习闪卡）
+   * 随机抽取多条记录（用于复习闪卡）
    */
-  async function getRandomRecord(): Promise<IdiomRecord | null> {
+  async function getRandomRecords(count: number): Promise<IdiomRecord[]> {
     const db = getDb()
     const rows = await db.select<any[]>(
-      'SELECT * FROM idiom_records ORDER BY RANDOM() LIMIT 1',
+      `SELECT * FROM idiom_records ORDER BY RANDOM() LIMIT ${count}`,
     )
-    return rows.length > 0 ? rowToRecord(rows[0]) : null
+    return rows.map(rowToRecord)
   }
 
   return {
@@ -129,6 +129,6 @@ export const useIdiomStore = defineStore('idiom', () => {
     createRecord,
     updateRecord,
     deleteRecord,
-    getRandomRecord,
+    getRandomRecords,
   }
 })
