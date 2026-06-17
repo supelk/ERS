@@ -83,6 +83,16 @@ const parentSummary = computed(() => {
     totalTime: parents.reduce((s, r) => s + r.used_time, 0),
   }
 })
+
+// 有无复盘/问题数据
+const hasReviewData = computed(() =>
+  detailWrongQuestions.value.length > 0 ||
+  detailSpeedQuestions.value.length > 0 ||
+  detailFastCorrectQuestions.value.length > 0
+)
+const hasAnalysisData = computed(() =>
+  examStore.currentSections.some((s) => s.analysis || s.plan)
+)
 </script>
 
 <template>
@@ -200,6 +210,7 @@ const parentSummary = computed(() => {
         </div>
 
         <!-- 题目复盘（三Tab只读展示） -->
+        <template v-if="hasReviewData">
         <div class="section-label">题目复盘</div>
         <ReviewTabs
           :wrong-questions="detailWrongQuestions"
@@ -208,8 +219,10 @@ const parentSummary = computed(() => {
           :parent-section-names="parentSections.map(s => s.section_name)"
           :readonly="true"
         />
+        </template>
 
         <!-- 问题汇总（层级结构） -->
+        <template v-if="hasAnalysisData">
         <div class="section-label">问题汇总</div>
         <template v-for="parent in parentSections" :key="'analysis-' + parent.section_id">
           <div class="analysis-group">
@@ -245,6 +258,7 @@ const parentSummary = computed(() => {
         <div v-if="!examStore.currentSections.some(s => s.analysis || s.plan)" class="analysis-empty-all">
           暂无问题分析记录
         </div>
+        </template>
       </template>
     </NSpin>
   </div>
