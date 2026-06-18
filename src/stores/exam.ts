@@ -191,7 +191,7 @@ export const useExamStore = defineStore('exam', () => {
     if (saving.value) throw new Error('请等待上一次保存完成')
     saving.value = true
     const db = getDb()
-    await db.execute('BEGIN TRANSACTION')
+    let examId = 0
     try {
       const result = await db.execute(
         `INSERT INTO exam_records
@@ -211,10 +211,9 @@ export const useExamStore = defineStore('exam', () => {
           data.notes,
         ]
       )
-      const examId = result.lastInsertId!
+      examId = result.lastInsertId!
       if (examId == null) throw new Error('Failed to get lastInsertId')
 
-      // Insert sections
       for (const s of data.sections) {
         await db.execute(
           `INSERT INTO exam_section_records
@@ -224,33 +223,26 @@ export const useExamStore = defineStore('exam', () => {
              next_target_efficiency)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
           [
-            examId,
-            s.section_name,
-            s.parent_section_name,
-            s.total_questions,
-            s.correct_questions,
-            s.per_question_score,
-            s.used_time,
-            s.unattempted_questions,
-            s.analysis,
-            s.plan,
-            s.next_target_accuracy,
-            s.next_target_time,
-            s.next_target_efficiency,
+            examId, s.section_name, s.parent_section_name,
+            s.total_questions, s.correct_questions, s.per_question_score,
+            s.used_time, s.unattempted_questions,
+            s.analysis, s.plan,
+            s.next_target_accuracy, s.next_target_time, s.next_target_efficiency,
           ]
         )
       }
 
-      // Insert review questions for all three tabs
       await insertReviewQuestions(db, examId, 'wrong', data.wrong_questions)
       await insertReviewQuestions(db, examId, 'speed', data.speed_questions)
       await insertReviewQuestions(db, examId, 'fast', data.fast_correct_questions)
 
-      await db.execute('COMMIT')
       await fetchExams()
       return examId
     } catch (e) {
-      try { await db.execute('ROLLBACK') } catch { /* 忽略回滚错误 */ }
+      // 出错时清理已插入的考试记录（级联删除板块+题目）
+      if (examId > 0) {
+        try { await db.execute('DELETE FROM exam_records WHERE exam_id = $1', [examId]) } catch { /* 忽略 */ }
+      }
       throw e
     } finally {
       saving.value = false
@@ -261,7 +253,6 @@ export const useExamStore = defineStore('exam', () => {
     if (saving.value) throw new Error('请等待上一次保存完成')
     saving.value = true
     const db = getDb()
-    await db.execute('BEGIN TRANSACTION')
     try {
       await db.execute(
         `UPDATE exam_records SET
@@ -270,24 +261,13 @@ export const useExamStore = defineStore('exam', () => {
           next_target_score=$8, total_time=$9, notes=$10
          WHERE exam_id=$11`,
         [
-          data.exam_name,
-          data.exam_date,
-          data.exam_type_1,
-          data.exam_type,
-          data.total_score,
-          data.full_score,
-          data.current_target_score,
-          data.next_target_score,
-          data.total_time,
-          data.notes,
-          data.exam_id,
+          data.exam_name, data.exam_date, data.exam_type_1, data.exam_type,
+          data.total_score, data.full_score, data.current_target_score,
+          data.next_target_score, data.total_time, data.notes, data.exam_id,
         ]
       )
 
-      // Delete removed sections
-      const keptIds = data.sections
-        .map((s) => s.section_id)
-        .filter((id) => id > 0)
+      const keptIds = data.sections.map((s) => s.section_id).filter((id) => id > 0)
       if (keptIds.length > 0) {
         const placeholders = keptIds.map((_, i) => `$${i + 2}`).join(',')
         await db.execute(
@@ -295,10 +275,7 @@ export const useExamStore = defineStore('exam', () => {
           [data.exam_id, ...keptIds]
         )
       } else {
-        await db.execute(
-          'DELETE FROM exam_section_records WHERE exam_id=$1',
-          [data.exam_id]
-        )
+        await db.execute('DELETE FROM exam_section_records WHERE exam_id=$1', [data.exam_id])
       }
 
       // Upsert sections
@@ -332,14 +309,15 @@ export const useExamStore = defineStore('exam', () => {
           // Insert new
           await db.execute(
             `INSERT INTO exam_section_records
-              (exam_id, section_name, total_questions, correct_questions,
+              (exam_id, section_name, parent_section_name, total_questions, correct_questions,
                per_question_score, used_time, unattempted_questions,
                analysis, plan, next_target_accuracy, next_target_time,
                next_target_efficiency)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
             [
               data.exam_id,
               s.section_name,
+              s.parent_section_name,
               s.total_questions,
               s.correct_questions,
               s.per_question_score,
@@ -364,15 +342,10 @@ export const useExamStore = defineStore('exam', () => {
       await insertReviewQuestions(db, data.exam_id, 'speed', data.speed_questions)
       await insertReviewQuestions(db, data.exam_id, 'fast', data.fast_correct_questions)
 
-      await db.execute('COMMIT')
       await fetchExams()
-      // Refresh current exam if viewing it
       if (currentExam.value?.exam_id === data.exam_id) {
         await fetchExamById(data.exam_id)
       }
-    } catch (e) {
-      try { await db.execute('ROLLBACK') } catch { /* 忽略 */ }
-      throw e
     } finally {
       saving.value = false
     }
