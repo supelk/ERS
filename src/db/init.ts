@@ -5,6 +5,11 @@ import type Database from '@tauri-apps/plugin-sql'
  * 在 Database.load() 之后调用
  */
 export async function initDatabase(db: Database): Promise<void> {
+  // 启用 WAL 模式避免并发写入时 database is locked 错误
+  await db.execute('PRAGMA journal_mode=WAL')
+  // 写锁等待最多 3 秒再报 busy
+  await db.execute('PRAGMA busy_timeout=3000')
+
   // ============================================================
   // 考试主表
   // ============================================================

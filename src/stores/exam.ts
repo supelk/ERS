@@ -21,6 +21,7 @@ export const useExamStore = defineStore('exam', () => {
   const currentSpeedQuestions = ref<ReviewQuestionRecord[]>([])
   const currentFastCorrectQuestions = ref<ReviewQuestionRecord[]>([])
   const loading = ref(false)
+  const saving = ref(false)    // 防止并发写入导致 database is locked
   const filters = ref<ExamFilters>({})
 
   // ============================================================
@@ -187,6 +188,8 @@ export const useExamStore = defineStore('exam', () => {
   }
 
   async function createExam(data: ExamFormData) {
+    if (saving.value) throw new Error('请等待上一次保存完成')
+    saving.value = true
     const db = getDb()
     await db.execute('BEGIN TRANSACTION')
     try {
@@ -244,16 +247,19 @@ export const useExamStore = defineStore('exam', () => {
       await insertReviewQuestions(db, examId, 'fast', data.fast_correct_questions)
 
       await db.execute('COMMIT')
-      // Refresh list
       await fetchExams()
       return examId
     } catch (e) {
-      await db.execute('ROLLBACK')
+      try { await db.execute('ROLLBACK') } catch { /* 忽略回滚错误 */ }
       throw e
+    } finally {
+      saving.value = false
     }
   }
 
   async function updateExam(data: ExamFormData) {
+    if (saving.value) throw new Error('请等待上一次保存完成')
+    saving.value = true
     const db = getDb()
     await db.execute('BEGIN TRANSACTION')
     try {
@@ -365,8 +371,10 @@ export const useExamStore = defineStore('exam', () => {
         await fetchExamById(data.exam_id)
       }
     } catch (e) {
-      await db.execute('ROLLBACK')
+      try { await db.execute('ROLLBACK') } catch { /* 忽略 */ }
       throw e
+    } finally {
+      saving.value = false
     }
   }
 
