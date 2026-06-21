@@ -24,8 +24,10 @@ jobs:
         with:
           version: 9
 
-      - name: Setup Rust
+      - name: Setup Rust (macOS universal)
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Install dependencies
         run: pnpm install
@@ -35,6 +37,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          beforeBuildCommand: 'pnpm build'
+          beforeDevCommand: 'pnpm dev'
           args: --target universal-apple-darwin
 
       - name: Upload macOS artifacts
@@ -72,6 +76,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          beforeBuildCommand: 'pnpm build'
+          beforeDevCommand: 'pnpm dev'
           args: --target x86_64-pc-windows-msvc
 
       - name: Upload Windows artifacts
