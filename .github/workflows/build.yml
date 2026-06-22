@@ -17,26 +17,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install dependencies
         run: pnpm install
+
+      - name: Build frontend
+        run: pnpm build
 
       - name: Build Tauri (macOS)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          beforeBuildCommand: 'pnpm build'
-          beforeDevCommand: 'pnpm dev'
+          tauriScript: 'pnpm tauri'
+          distPath: '../dist'
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -55,26 +55,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install dependencies
         run: pnpm install
+
+      - name: Build frontend
+        run: pnpm build
 
       - name: Build Tauri (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          beforeBuildCommand: 'pnpm build'
-          beforeDevCommand: 'pnpm dev'
+          tauriScript: 'pnpm tauri'
+          distPath: '../dist'
           args: --target x86_64-pc-windows-msvc
 
       - name: Upload Windows artifacts
