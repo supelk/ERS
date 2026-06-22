@@ -24,10 +24,8 @@ jobs:
         with:
           version: 9
 
-      - name: Setup Rust (macOS universal)
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Install dependencies
         run: pnpm install
@@ -39,13 +37,12 @@ jobs:
         with:
           beforeBuildCommand: 'pnpm build'
           beforeDevCommand: 'pnpm dev'
-          args: --target universal-apple-darwin
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-installer
-          path: src-tauri/target/universal-apple-darwin/release/bundle/**/*
+          path: src-tauri/target/release/bundle/**/*
 
   # ============================================================
   # Windows 构建
