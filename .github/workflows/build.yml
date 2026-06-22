@@ -38,6 +38,8 @@ jobs:
           projectpath: src-tauri
           tauriScript: 'pnpm tauri'
           distPath: '../dist'
+          args: '--debug'
+          release: false
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
