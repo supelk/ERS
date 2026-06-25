@@ -38,20 +38,11 @@ jobs:
           projectPath: src-tauri
           tauriScript: 'pnpm tauri'
           distPath: '../dist'
-          args: '--debug'
-          release: false
-          
-      - name: Debug - list target directory
-        if: always()
-        run: |
-          echo "=== looking for bundles ==="
-          find src-tauri/target -name "*.dmg" -o -name "*.app" 2>/dev/null || echo "No .dmg/.app found"
-          echo "=== full target tree (top 3 levels) ==="
-          ls -R src-tauri/target | head -100      
-      
+          release: false          # 不自动发 GitHub Release
+          # 不传 args，让其走默认 release 构建
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-installer
-          path: src-tauri/target/debug/bundle/**/*
-
+          path: src-tauri/target/release/bundle/**/*
