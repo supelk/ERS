@@ -38,8 +38,15 @@ jobs:
           projectPath: src-tauri
           tauriScript: 'pnpm tauri'
           distPath: '../dist'
+          args:'--Debug'
           release: false          # 不自动发 GitHub Release
           # 不传 args，让其走默认 release 构建
+
+      - name: Debug - list bundle files
+        if: always()
+        run: |
+          echo "=== Checking if bundle exists ==="
+          ls -laR src-tauri/target/release/bundle || echo "Bundle directory not found!"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
