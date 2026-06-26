@@ -37,7 +37,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pnpm tauri build --config src-tauri/tauri.conf.json
+          pnpm tauri build --config src-tauri/tauri.conf.json --verbose
 
       - name: Debug - list bundle files
         if: always()
