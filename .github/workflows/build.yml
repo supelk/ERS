@@ -38,7 +38,7 @@ jobs:
           projectPath: src-tauri
           tauriScript: 'pnpm tauri'
           distPath: '../dist'
-          args:'--Debug'
+          args: '--Debug'
           release: false          # 不自动发 GitHub Release
           # 不传 args，让其走默认 release 构建
 
