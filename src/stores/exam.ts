@@ -371,6 +371,34 @@ export const useExamStore = defineStore('exam', () => {
     currentSections.value = parseSections(rows)
   }
 
+  async function fetchPreviousSameTypeSections(examId: number): Promise<ExamSectionRecord[]> {
+    const db = getDb()
+    const examRows = await db.select<any[]>(
+      'SELECT exam_type_1, exam_type, exam_date FROM exam_records WHERE exam_id = $1',
+      [examId],
+    )
+    if (examRows.length === 0) return []
+
+    const exam = examRows[0]
+    const previousRows = await db.select<any[]>(
+      `SELECT exam_id FROM exam_records
+       WHERE exam_id <> $1
+         AND exam_type_1 = $2
+         AND exam_type = $3
+         AND exam_date <= $4
+       ORDER BY exam_date DESC, exam_id DESC
+       LIMIT 1`,
+      [examId, exam.exam_type_1, exam.exam_type, exam.exam_date],
+    )
+    if (previousRows.length === 0) return []
+
+    const sectionRows = await db.select<any[]>(
+      'SELECT * FROM exam_section_records WHERE exam_id = $1 ORDER BY section_id',
+      [previousRows[0].exam_id],
+    )
+    return parseSections(sectionRows)
+  }
+
   async function updateSection(section: ExamSectionRecord) {
     const db = getDb()
     await db.execute(
@@ -438,6 +466,7 @@ export const useExamStore = defineStore('exam', () => {
     updateExam,
     deleteExam,
     fetchSections,
+    fetchPreviousSameTypeSections,
     updateSection,
     setFilters,
     clearFilters,

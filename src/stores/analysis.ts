@@ -15,6 +15,38 @@ export const useAnalysisStore = defineStore('analysis', () => {
     return useDatabaseStore().getDb()
   }
 
+  function applyExamFilters(
+    conds: string[],
+    params: any[],
+    idx: number,
+    options: {
+      tableAlias?: string
+      filterType1?: string
+      filterType?: string
+      dateFrom?: string
+      dateTo?: string
+    },
+  ): number {
+    const prefix = options.tableAlias ? `${options.tableAlias}.` : ''
+    if (options.filterType1) {
+      conds.push(`${prefix}exam_type_1 = $${idx++}`)
+      params.push(options.filterType1)
+    }
+    if (options.filterType) {
+      conds.push(`${prefix}exam_type = $${idx++}`)
+      params.push(options.filterType)
+    }
+    if (options.dateFrom) {
+      conds.push(`${prefix}exam_date >= $${idx++}`)
+      params.push(options.dateFrom)
+    }
+    if (options.dateTo) {
+      conds.push(`${prefix}exam_date <= $${idx++}`)
+      params.push(options.dateTo)
+    }
+    return idx
+  }
+
   // ============================================================
   // 单次考试：板块正确率对比（实际 vs 目标）— 仅一级板块
   // ============================================================
@@ -79,20 +111,16 @@ export const useAnalysisStore = defineStore('analysis', () => {
   // ============================================================
   // 多考试：总分趋势（支持筛选）
   // ============================================================
-  async function getScoreTrend(filterType1?: string, filterType?: string): Promise<TrendPoint[]> {
+  async function getScoreTrend(
+    filterType1?: string,
+    filterType?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<TrendPoint[]> {
     const db = getDb()
     const conds: string[] = []
     const params: any[] = []
-    let idx = 1
-
-    if (filterType1) {
-      conds.push(`exam_type_1 = $${idx++}`)
-      params.push(filterType1)
-    }
-    if (filterType) {
-      conds.push(`exam_type = $${idx++}`)
-      params.push(filterType)
-    }
+    applyExamFilters(conds, params, 1, { filterType1, filterType, dateFrom, dateTo })
 
     const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : ''
     const rows = await db.select<any[]>(
@@ -112,22 +140,18 @@ export const useAnalysisStore = defineStore('analysis', () => {
   // 自动聚合：无论是旧数据（子项直接作为 section_name）还是新数据（有 parent_section_name），
   // 都按一级板块聚合
   // ============================================================
-  async function getAllSectionTrends(filterType1?: string, filterType?: string): Promise<MultiExamSectionTrend[]> {
+  async function getAllSectionTrends(
+    filterType1?: string,
+    filterType?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<MultiExamSectionTrend[]> {
     const db = getDb()
 
     // 构建筛选条件
     const conds: string[] = []
     const filterParams: any[] = []
-    let idx = 1
-
-    if (filterType1) {
-      conds.push(`er.exam_type_1 = $${idx++}`)
-      filterParams.push(filterType1)
-    }
-    if (filterType) {
-      conds.push(`er.exam_type = $${idx++}`)
-      filterParams.push(filterType)
-    }
+    applyExamFilters(conds, filterParams, 1, { tableAlias: 'er', filterType1, filterType, dateFrom, dateTo })
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     // 只查一级板块行（避免父+子重复计数）
@@ -178,13 +202,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
   async function getSectionTimeTrends(
     filterType1?: string,
     filterType?: string,
+    dateFrom?: string,
+    dateTo?: string,
   ): Promise<MultiExamSectionTrend[]> {
     const db = getDb()
     const conds: string[] = []
     const params: any[] = []
-    let idx = 1
-    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
-    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    applyExamFilters(conds, params, 1, { tableAlias: 'er', filterType1, filterType, dateFrom, dateTo })
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     const rows = await db.select<any[]>(
@@ -225,13 +249,13 @@ export const useAnalysisStore = defineStore('analysis', () => {
   async function getSectionEfficiencyTrends(
     filterType1?: string,
     filterType?: string,
+    dateFrom?: string,
+    dateTo?: string,
   ): Promise<MultiExamSectionTrend[]> {
     const db = getDb()
     const conds: string[] = []
     const params: any[] = []
-    let idx = 1
-    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
-    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    applyExamFilters(conds, params, 1, { tableAlias: 'er', filterType1, filterType, dateFrom, dateTo })
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     const rows = await db.select<any[]>(
@@ -268,13 +292,16 @@ export const useAnalysisStore = defineStore('analysis', () => {
   // ============================================================
   // 获取当前筛选条件下的可用一级板块列表（按出现频次降序）
   // ============================================================
-  async function getAvailableSections(filterType1?: string, filterType?: string): Promise<string[]> {
+  async function getAvailableSections(
+    filterType1?: string,
+    filterType?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<string[]> {
     const db = getDb()
     const conds: string[] = []
     const params: any[] = []
-    let idx = 1
-    if (filterType1) { conds.push(`er.exam_type_1 = $${idx++}`); params.push(filterType1) }
-    if (filterType)  { conds.push(`er.exam_type = $${idx++}`); params.push(filterType) }
+    applyExamFilters(conds, params, 1, { tableAlias: 'er', filterType1, filterType, dateFrom, dateTo })
     const filterWhere = conds.length > 0 ? `AND ${conds.join(' AND ')}` : ''
 
     const rows = await db.select<any[]>(

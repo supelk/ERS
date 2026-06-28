@@ -9,6 +9,7 @@ import ComparisonCard from '@/components/analysis/ComparisonCard.vue'
 import ScorePieChart from '@/components/analysis/ScorePieChart.vue'
 import AccuracyBarChart from '@/components/analysis/AccuracyBarChart.vue'
 import OrderEfficiencyChart, { type OrderEfficiencyPoint } from '@/components/analysis/OrderEfficiencyChart.vue'
+import SingleExamAiReview from '@/components/exam/SingleExamAiReview.vue'
 import ReviewTabs from '@/components/exam/ReviewTabs.vue'
 import type { ExamSectionRecord, SectionComparison, TimeDistribution } from '@/types/exam'
 import { formatPercent, formatNumber, formatDate } from '@/utils/formatters'
@@ -48,6 +49,10 @@ function goEdit() {
 
 function goBack() {
   router.push('/exams')
+}
+
+async function refreshCurrentExam() {
+  await examStore.fetchExamById(examId)
 }
 
 // 将板块按层级分组：一级板块 + 其下的二级板块
@@ -226,6 +231,15 @@ const hasAnalysisData = computed(() =>
             </NCard>
           </NGi>
         </NGrid>
+
+        <SingleExamAiReview
+          :exam="examStore.currentExam"
+          :sections="examStore.currentSections"
+          :wrong-questions="examStore.currentWrongQuestions"
+          :speed-questions="examStore.currentSpeedQuestions"
+          :fast-correct-questions="examStore.currentFastCorrectQuestions"
+          @applied="refreshCurrentExam"
+        />
 
         <!-- 板块明细表（层级结构） -->
         <div class="section-label">板块明细</div>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { NCard, NSpin, NEmpty, NSelect, NH3, NGrid, NGi, NButton } from 'naive-ui'
+import { NCard, NSpin, NEmpty, NSelect, NH3, NGrid, NGi, NButton, NDatePicker, NButtonGroup } from 'naive-ui'
 import { useAnalysisStore } from '@/stores/analysis'
 import TrendLineChart from '@/components/analysis/TrendLineChart.vue'
+import HistoryAiDiagnosis from '@/components/analysis/HistoryAiDiagnosis.vue'
 import { EXAM_TYPE_1_OPTIONS, EXAM_TYPE_OPTIONS } from '@/utils/constants'
 import { computeYRangeFromTrends, computeYRange } from '@/utils/calculations'
 import type { TrendPoint, MultiExamSectionTrend, ExamType1, ExamType } from '@/types/exam'
@@ -12,6 +13,8 @@ const loading = ref(true)
 
 const filterType1 = ref<ExamType1 | ''>('')
 const filterType = ref<ExamType | ''>('')
+const timeQuickFilter = ref<'month' | 'half-year' | 'all' | 'custom'>('all')
+const dateRange = ref<[number, number] | null>(null)
 const selectedSection = ref('')
 
 const scoreTrend = ref<TrendPoint[]>([])
@@ -19,6 +22,7 @@ const sectionTimeTrends = ref<MultiExamSectionTrend[]>([])
 const sectionEfficiencyTrends = ref<MultiExamSectionTrend[]>([])
 const allSectionTrends = ref<MultiExamSectionTrend[]>([])
 const availableSections = ref<string[]>([])
+const showHistoryAi = ref(false)
 
 const type1Options = [
   { label: '全部分类', value: '' },
@@ -47,6 +51,21 @@ const selectedEfficiencyTrend = computed(() =>
 const selectedAccuracyTrend = computed(() =>
   allSectionTrends.value.find((t) => t.section_name === selectedSection.value) ?? null,
 )
+const aiSectionTimeTrends = computed(() =>
+  selectedSection.value
+    ? sectionTimeTrends.value.filter((t) => t.section_name === selectedSection.value)
+    : sectionTimeTrends.value
+)
+const aiSectionEfficiencyTrends = computed(() =>
+  selectedSection.value
+    ? sectionEfficiencyTrends.value.filter((t) => t.section_name === selectedSection.value)
+    : sectionEfficiencyTrends.value
+)
+const aiSectionAccuracyTrends = computed(() =>
+  selectedSection.value
+    ? allSectionTrends.value.filter((t) => t.section_name === selectedSection.value)
+    : allSectionTrends.value
+)
 
 // -------- Y 轴动态范围 --------
 const scoreYRange = computed(() => computeYRange(scoreTrend.value.map((p) => p.value)))
@@ -63,12 +82,15 @@ async function loadData() {
   try {
     const t1 = filterType1.value || ''
     const t2 = filterType.value || ''
+    const range = activeDateRange()
+    const from = range.from
+    const to = range.to
     const [st, sst, set, ast, secs] = await Promise.all([
-      analysisStore.getScoreTrend(t1, t2),
-      analysisStore.getSectionTimeTrends(t1, t2),
-      analysisStore.getSectionEfficiencyTrends(t1, t2),
-      analysisStore.getAllSectionTrends(t1, t2),
-      analysisStore.getAvailableSections(t1, t2),
+      analysisStore.getScoreTrend(t1, t2, from, to),
+      analysisStore.getSectionTimeTrends(t1, t2, from, to),
+      analysisStore.getSectionEfficiencyTrends(t1, t2, from, to),
+      analysisStore.getAllSectionTrends(t1, t2, from, to),
+      analysisStore.getAvailableSections(t1, t2, from, to),
     ])
     scoreTrend.value = st
     sectionTimeTrends.value = sst
@@ -87,7 +109,7 @@ async function loadData() {
 }
 
 onMounted(loadData)
-watch([filterType1, filterType], loadData)
+watch([filterType1, filterType, timeQuickFilter, dateRange], loadData)
 
 const scoreTrendChart = computed(() => ({
   xLabels: scoreTrend.value.map((p: TrendPoint) => p.label),
@@ -98,10 +120,64 @@ const filterLabel = computed(() => {
   const parts = []
   if (filterType1.value) parts.push(filterType1.value)
   if (filterType.value) parts.push(filterType.value)
+  const range = activeDateRange()
+  if (range.from || range.to) parts.push(`${range.from || '不限'} 至 ${range.to || '不限'}`)
+  if (selectedSection.value) parts.push(selectedSection.value)
   return parts.length > 0 ? ' · ' + parts.join(' · ') : ''
 })
 
 const isOverall = computed(() => !selectedSection.value)
+
+function dateRangeToStrings(value: [number, number] | null): { from: string; to: string } {
+  if (!value) return { from: '', to: '' }
+  return {
+    from: timestampToDate(value[0]),
+    to: timestampToDate(value[1]),
+  }
+}
+
+function activeDateRange(): { from: string; to: string } {
+  if (timeQuickFilter.value === 'all') return { from: '', to: '' }
+  if (timeQuickFilter.value === 'custom') return dateRangeToStrings(dateRange.value)
+
+  const end = new Date()
+  const start = new Date(end)
+  if (timeQuickFilter.value === 'month') {
+    start.setMonth(start.getMonth() - 1)
+  } else {
+    start.setMonth(start.getMonth() - 6)
+  }
+  return {
+    from: timestampToDate(start.getTime()),
+    to: timestampToDate(end.getTime()),
+  }
+}
+
+function timestampToDate(value: number): string {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function clearFilters() {
+  filterType1.value = ''
+  filterType.value = ''
+  timeQuickFilter.value = 'all'
+  dateRange.value = null
+  selectedSection.value = ''
+}
+
+function setQuickFilter(value: 'month' | 'half-year' | 'all' | 'custom') {
+  timeQuickFilter.value = value
+  if (value !== 'custom') {
+    dateRange.value = null
+  }
+}
+
+function jumpToSection(sectionName: string) {
+  if (availableSections.value.includes(sectionName)) {
+    selectedSection.value = sectionName
+  }
+}
 </script>
 
 <template>
@@ -116,16 +192,56 @@ const isOverall = computed(() => !selectedSection.value)
         <span class="filter-label">筛选条件：</span>
         <NSelect v-model:value="filterType1" :options="type1Options" placeholder="考试分类" style="width: 130px" size="small" />
         <NSelect v-model:value="filterType" :options="typeOptions" placeholder="考试类型" style="width: 140px" size="small" />
+        <NButtonGroup size="small">
+          <NButton :type="timeQuickFilter === 'month' ? 'primary' : 'default'" @click="setQuickFilter('month')">
+            近一月
+          </NButton>
+          <NButton :type="timeQuickFilter === 'half-year' ? 'primary' : 'default'" @click="setQuickFilter('half-year')">
+            近半年
+          </NButton>
+          <NButton :type="timeQuickFilter === 'all' ? 'primary' : 'default'" @click="setQuickFilter('all')">
+            所有
+          </NButton>
+          <NButton :type="timeQuickFilter === 'custom' ? 'primary' : 'default'" @click="setQuickFilter('custom')">
+            自定义
+          </NButton>
+        </NButtonGroup>
+        <NDatePicker
+          v-if="timeQuickFilter === 'custom'"
+          v-model:value="dateRange"
+          type="daterange"
+          size="small"
+          clearable
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          style="width: 240px"
+        />
         <span class="filter-divider">|</span>
         <span class="filter-label">查看维度：</span>
         <NSelect v-model:value="selectedSection" :options="sectionOptions" placeholder="选择板块" style="width: 160px" size="small" />
-        <NButton v-if="filterType1 || filterType || selectedSection" size="small" quaternary
-          @click="filterType1 = ''; filterType = ''; selectedSection = ''">
+        <NButton v-if="filterType1 || filterType || timeQuickFilter !== 'all' || selectedSection" size="small" quaternary
+          @click="clearFilters">
           清除筛选
         </NButton>
       </div>
-      <span class="record-count">匹配 {{ scoreTrend.length }} 场考试</span>
+      <div class="filter-actions">
+        <span class="record-count">匹配 {{ scoreTrend.length }} 场考试</span>
+        <NButton size="small" type="primary" secondary @click="showHistoryAi = !showHistoryAi">
+          AI 历史诊断
+        </NButton>
+      </div>
     </div>
+
+    <HistoryAiDiagnosis
+      v-model:show="showHistoryAi"
+      :filter-label="filterLabel.replace(/^ · /, '')"
+      :selected-section="selectedSection"
+      :score-trend="scoreTrend"
+      :section-time-trends="aiSectionTimeTrends"
+      :section-efficiency-trends="aiSectionEfficiencyTrends"
+      :section-accuracy-trends="aiSectionAccuracyTrends"
+      @jump-section="jumpToSection"
+    />
 
     <NSpin :show="loading">
       <template v-if="!loading && scoreTrend.length === 0">
@@ -281,5 +397,6 @@ const isOverall = computed(() => !selectedSection.value)
 .filter-label { font-weight: 600; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
 .filter-divider { color: var(--border); font-size: 14px; margin: 0 4px; }
 .record-count { font-size: 12px; color: var(--text-tertiary); flex-shrink: 0; }
+.filter-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .empty-hint { color: var(--text-tertiary); padding: 24px 0; text-align: center; font-size: 13px; }
 </style>

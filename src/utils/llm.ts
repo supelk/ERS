@@ -23,7 +23,11 @@ export function getStoredApiKey(): string {
 /**
  * 通用 DeepSeek 调用
  */
-async function callDeepSeek(systemPrompt: string, userMessage: string): Promise<string> {
+export async function callDeepSeek(
+  systemPrompt: string,
+  userMessage: string,
+  maxTokens = 1200,
+): Promise<string> {
   const apiKey = getApiKey()
   if (!apiKey) {
     throw new Error('请先在设置页配置 DeepSeek API Key')
@@ -41,7 +45,7 @@ async function callDeepSeek(systemPrompt: string, userMessage: string): Promise<
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      max_tokens: 800,
+      max_tokens: maxTokens,
       temperature: 0.3,
     }),
   })

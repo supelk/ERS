@@ -29,9 +29,6 @@ jobs:
 
       - name: Build frontend
         run: pnpm build
-      
-      - name: Check dist
-        run: ls -la dist
 
       - name: Build Tauri (macOS)
         env:
@@ -39,14 +36,47 @@ jobs:
         run: |
           pnpm tauri build --config src-tauri/tauri.conf.json --verbose
 
-      - name: Debug - list bundle files
-        if: always()
-        run: |
-          echo "=== Checking if bundle exists ==="
-          ls -laR src-tauri/target/release/bundle || echo "Bundle directory not found!"
-
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-installer
           path: src-tauri/target/release/bundle/**/*
+
+  # ============================================================
+  # Windows 构建
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Build Tauri (Windows)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: 'pnpm tauri'
+          distPath: '../dist'
+          args: --target x86_64-pc-windows-msvc
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**/*
