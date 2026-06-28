@@ -9,14 +9,17 @@ import {
   useMessage,
 } from 'naive-ui'
 import ExamForm from '@/components/exam/ExamForm.vue'
+import ExamOrderInput from '@/components/exam/ExamOrderInput.vue'
 import SectionTable from '@/components/exam/SectionTable.vue'
 import ReviewTabs from '@/components/exam/ReviewTabs.vue'
 import { useExamStore } from '@/stores/exam'
 import { useDatabaseStore } from '@/stores/database'
 import type { ExamFormData, ExamSectionFormData } from '@/types/exam'
+import type { RecognizedSectionDraft } from '@/utils/sectionOcr'
 import { todayStr } from '@/utils/formatters'
 import { SECTION_HIERARCHY, SECTION_QUESTION_PRESETS, SECTION_SCORE_PRESETS } from '@/utils/constants'
 import { getMemory, saveMemory, type ExamMemory } from '@/utils/examMemory'
+import { normalizeRecognizedScore } from '@/utils/sectionOcr'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,6 +30,8 @@ const dbStore = useDatabaseStore()
 const isEdit = ref(false)
 const saving = ref(false)
 const loading = ref(false)
+const sectionCardRef = ref<HTMLElement | null>(null)
+const highlightedSections = ref(false)
 
 /** 当前一级板块名称列表（供错题表分组联动） */
 const parentSectionNames = computed(() =>
@@ -133,6 +138,7 @@ function createEmptyForm(): ExamFormData {
     current_target_score: null,
     next_target_score: null,
     total_time: 90,
+    question_order: null,
     notes: null,
     sections: buildDefaultSections('省考'),
     wrong_questions: [],
@@ -251,6 +257,7 @@ onMounted(async () => {
           current_target_score: e.current_target_score,
           next_target_score: e.next_target_score,
           total_time: e.total_time,
+          question_order: e.question_order,
           notes: e.notes,
           sections: sections.map((s) => ({
             client_id: `edit-${s.section_id}`,
@@ -378,6 +385,69 @@ async function handleSave() {
 function handleCancel() {
   router.push('/exams')
 }
+
+function isEmptyNumber(value: number | null | undefined, emptyDefault = 0): boolean {
+  return value == null || value === emptyDefault
+}
+
+function handleOcrFill(rows: RecognizedSectionDraft[]) {
+  let filled = 0
+  const usedSectionIds = new Set<string>()
+
+  const nextSections = formData.value.sections.map((section) => {
+    const matched = rows.find((row) =>
+      !usedSectionIds.has(row.id) &&
+      row.section_name === section.section_name &&
+      (row.parent_section_name ?? null) === (section.parent_section_name ?? null)
+    )
+    if (!matched) return section
+
+    usedSectionIds.add(matched.id)
+    let changed = false
+    const patch: Partial<ExamSectionFormData> = {}
+
+    if (matched.total_questions != null && isEmptyNumber(section.total_questions)) {
+      patch.total_questions = matched.total_questions
+      changed = true
+    }
+    if (matched.correct_questions != null && isEmptyNumber(section.correct_questions)) {
+      patch.correct_questions = matched.correct_questions
+      changed = true
+    }
+    if (matched.used_time != null && isEmptyNumber(section.used_time)) {
+      patch.used_time = matched.used_time
+      changed = true
+    }
+    if (isEmptyNumber(section.per_question_score, 1)) {
+      patch.per_question_score = normalizeRecognizedScore(
+        formData.value.exam_type_1,
+        section.section_name,
+        matched.score,
+        matched.correct_questions,
+      )
+      changed = true
+    }
+
+    if (changed) filled++
+    return { ...section, ...patch }
+  })
+
+  formData.value.sections = nextSections
+
+  if (filled === 0) {
+    message.info('没有可填充的空字段，已有内容未被覆盖')
+    return
+  }
+
+  highlightedSections.value = true
+  requestAnimationFrame(() => {
+    sectionCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+  window.setTimeout(() => {
+    highlightedSections.value = false
+  }, 1800)
+  message.success(`已成功填充 ${filled} 个板块数据`)
+}
 </script>
 
 <template>
@@ -399,9 +469,22 @@ function handleCancel() {
       </NCard>
 
       <!-- 板块成绩表 -->
-      <NCard title="板块成绩">
+      <ExamOrderInput
+        v-model="formData.question_order"
+        :sections="formData.sections"
+        style="margin-bottom: 16px"
+      />
+
+      <!-- 板块成绩表 -->
+      <NCard
+        ref="sectionCardRef"
+        title="板块成绩"
+        :class="{ 'section-filled': highlightedSections }"
+      >
         <SectionTable
           v-model:sections="formData.sections"
+          :enable-ocr="!isEdit"
+          @ocr-fill="handleOcrFill"
         />
       </NCard>
 
@@ -446,5 +529,13 @@ function handleCancel() {
   font-weight: 700;
   color: var(--text-primary);
   font-family: var(--font-display);
+}
+.section-filled {
+  animation: sectionPulse 1.6s ease;
+}
+@keyframes sectionPulse {
+  0% { box-shadow: 0 0 0 0 rgba(91, 141, 239, 0.42); }
+  60% { box-shadow: 0 0 0 8px rgba(91, 141, 239, 0.08); }
+  100% { box-shadow: var(--shadow-sm); }
 }
 </style>

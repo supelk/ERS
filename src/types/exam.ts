@@ -12,6 +12,7 @@ export interface ExamRecord {
   current_target_score: number | null
   next_target_score: number | null
   total_time: number | null       // 总用时（分钟）
+  question_order: string | null   // 做题顺序（JSON 数组字符串，按板块名称记录）
   notes: string | null
   created_at?: string
   updated_at?: string
@@ -69,6 +70,7 @@ export interface ExamFormData {
   current_target_score: number | null
   next_target_score: number | null
   total_time: number | null
+  question_order: string | null
   notes: string | null
   // 板块列表
   sections: ExamSectionFormData[]

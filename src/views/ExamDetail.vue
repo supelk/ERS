@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NCard, NGrid, NGi, NSpin, NEmpty, NButton, NSpace, useMessage } from 'naive-ui'
+import { NCard, NGrid, NGi, NSpin, NEmpty, NButton, NSpace, NTag, useMessage } from 'naive-ui'
 import { useExamStore } from '@/stores/exam'
 import { useAnalysisStore } from '@/stores/analysis'
 import SummaryStats from '@/components/analysis/SummaryStats.vue'
 import ComparisonCard from '@/components/analysis/ComparisonCard.vue'
 import ScorePieChart from '@/components/analysis/ScorePieChart.vue'
 import AccuracyBarChart from '@/components/analysis/AccuracyBarChart.vue'
+import OrderEfficiencyChart, { type OrderEfficiencyPoint } from '@/components/analysis/OrderEfficiencyChart.vue'
 import ReviewTabs from '@/components/exam/ReviewTabs.vue'
 import type { ExamSectionRecord, SectionComparison, TimeDistribution } from '@/types/exam'
 import { formatPercent, formatNumber, formatDate } from '@/utils/formatters'
@@ -84,6 +85,52 @@ const parentSummary = computed(() => {
   }
 })
 
+const questionOrderItems = computed(() => {
+  const raw = examStore.currentExam?.question_order
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
+      : []
+  } catch {
+    return raw.split(/[、,，\s]+/).map((name) => name.trim()).filter(Boolean)
+  }
+})
+
+function sectionOrderLabel(sectionName: string): string {
+  const section = examStore.currentSections.find((item) => item.section_name === sectionName)
+  return section?.parent_section_name ? `${section.parent_section_name} / ${sectionName}` : sectionName
+}
+
+function sectionOrderRecord(sectionName: string, usedIndexes: Set<number>) {
+  const index = examStore.currentSections.findIndex((item, itemIndex) =>
+    item.section_name === sectionName && !usedIndexes.has(itemIndex)
+  )
+  if (index < 0) return null
+  usedIndexes.add(index)
+  return examStore.currentSections[index]
+}
+
+const orderEfficiencyData = computed<OrderEfficiencyPoint[]>(() => {
+  const usedIndexes = new Set<number>()
+  return questionOrderItems.value
+    .map((sectionName) => {
+      const section = sectionOrderRecord(sectionName, usedIndexes)
+      if (!section) return null
+      const questionsPerMinute = section.used_time > 0
+        ? section.total_questions / section.used_time
+        : 0
+      return {
+        section_name: section.section_name,
+        label: sectionOrderLabel(section.section_name),
+        score_efficiency: section.score_efficiency,
+        questions_per_minute: questionsPerMinute,
+      }
+    })
+    .filter((item): item is OrderEfficiencyPoint => item != null)
+})
+
 // 有无复盘/问题数据
 const hasReviewData = computed(() =>
   detailWrongQuestions.value.length > 0 ||
@@ -132,6 +179,27 @@ const hasAnalysisData = computed(() =>
             { label: '总用时', value: summary.total_used_time, suffix: '分钟' },
           ]"
         />
+
+        <div class="section-label">做题顺序</div>
+        <div class="order-strip">
+          <template v-if="questionOrderItems.length > 0">
+            <div
+              v-for="(sectionName, index) in questionOrderItems"
+              :key="`${sectionName}-${index}`"
+              class="order-chip"
+            >
+              <span class="order-index">{{ index + 1 }}</span>
+              <NTag size="small" :bordered="false" type="info">
+                {{ sectionOrderLabel(sectionName) }}
+              </NTag>
+            </div>
+          </template>
+          <span v-else class="order-empty">暂无做题顺序记录</span>
+        </div>
+
+        <NCard v-if="orderEfficiencyData.length > 0" style="margin-top: 12px">
+          <OrderEfficiencyChart :data="orderEfficiencyData" />
+        </NCard>
 
         <!-- 板块对比卡片 -->
         <div class="section-label">板块目标对比</div>
@@ -294,6 +362,33 @@ const hasAnalysisData = computed(() =>
   margin: 24px 0 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-light);
+}
+
+.order-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+.order-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.order-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* ============================================================

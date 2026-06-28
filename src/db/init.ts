@@ -25,11 +25,22 @@ export async function initDatabase(db: Database): Promise<void> {
       current_target_score REAL,
       next_target_score REAL,
       total_time REAL,
+      question_order TEXT,
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime'))
     )
   `)
+
+  // 迁移：为已有数据库添加做题顺序字段
+  try {
+    await db.execute(
+      `ALTER TABLE exam_records ADD COLUMN question_order TEXT`
+    )
+    console.log('[DB] Migration: added exam_records.question_order column')
+  } catch {
+    // 列已存在，忽略
+  }
 
   // ============================================================
   // 板块记录表（含自动计算列 + 二级板块支持）

@@ -15,6 +15,11 @@ import { useDatabaseStore } from '@/stores/database'
 import { useExamStore } from '@/stores/exam'
 import { useTaskStore } from '@/stores/task'
 import { getStoredApiKey, setApiKey } from '@/utils/llm'
+import {
+  getStoredPaddleOcrApiKey,
+  getStoredPaddleOcrApiUrl,
+  setPaddleOcrConfig,
+} from '@/utils/sectionOcr'
 
 const message = useMessage()
 const appStore = useAppStore()
@@ -23,11 +28,18 @@ const examStore = useExamStore()
 const taskStore = useTaskStore()
 
 const apiKey = ref(getStoredApiKey())
+const paddleOcrApiUrl = ref(getStoredPaddleOcrApiUrl())
+const paddleOcrApiKey = ref(getStoredPaddleOcrApiKey())
 const clearingData = ref(false)
 
 function saveApiKey() {
   setApiKey(apiKey.value)
   message.success('API Key 已保存')
+}
+
+function savePaddleOcrConfig() {
+  setPaddleOcrConfig(paddleOcrApiUrl.value, paddleOcrApiKey.value)
+  message.success('PaddleOCR API 已保存')
 }
 
 async function handleClearAllData() {
@@ -80,6 +92,34 @@ async function handleClearAllData() {
           style="flex: 1"
         />
         <NButton type="primary" size="small" @click="saveApiKey">保存</NButton>
+      </div>
+
+      <NDivider />
+
+      <div class="setting-row">
+        <div>
+          <NText strong>PaddleOCR API</NText>
+          <br />
+          <NText depth="3" style="font-size: 12px">用于考试成绩截图识别。系统会以 multipart/form-data 上传图片。</NText>
+        </div>
+      </div>
+      <div class="api-stack">
+        <NInput
+          :value="paddleOcrApiUrl"
+          @update:value="(v: string) => paddleOcrApiUrl = v"
+          placeholder="https://your-paddleocr-service/ocr"
+        />
+        <div style="display: flex; gap: 8px">
+          <NInput
+            :value="paddleOcrApiKey"
+            @update:value="(v: string) => paddleOcrApiKey = v"
+            type="password"
+            show-password-on="click"
+            placeholder="API Key（如无鉴权可留空）"
+            style="flex: 1"
+          />
+          <NButton type="primary" size="small" @click="savePaddleOcrConfig">保存</NButton>
+        </div>
       </div>
     </NCard>
 
@@ -140,6 +180,12 @@ async function handleClearAllData() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
+}
+.api-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
 }
 .shortcut-list {
   display: flex;

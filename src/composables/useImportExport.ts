@@ -75,8 +75,8 @@ export async function importFromJSON(data: ExportData): Promise<{ imported: numb
       const result = await db.execute(
         `INSERT INTO exam_records
           (exam_name, exam_date, exam_type_1, exam_type, total_score, full_score,
-           current_target_score, next_target_score, total_time, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+           current_target_score, next_target_score, total_time, question_order, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           exam.exam_name,
           exam.exam_date,
@@ -87,6 +87,7 @@ export async function importFromJSON(data: ExportData): Promise<{ imported: numb
           exam.current_target_score ?? null,
           exam.next_target_score ?? null,
           exam.total_time ?? null,
+          exam.question_order ?? null,
           exam.notes ?? null,
         ]
       )
@@ -291,6 +292,7 @@ function cleanExam(r: any): ExamRecord {
     current_target_score: r.current_target_score,
     next_target_score: r.next_target_score,
     total_time: r.total_time,
+    question_order: r.question_order ?? null,
     notes: r.notes,
   }
 }

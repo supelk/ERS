@@ -1,19 +1,33 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NButton, NSpace, NDivider, NEmpty } from 'naive-ui'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { NButton, NSpace, NDivider, NEmpty, useMessage } from 'naive-ui'
 import SectionRow from './SectionRow.vue'
 import ChildSectionRow from './ChildSectionRow.vue'
 import PresetSectionPicker from './PresetSectionPicker.vue'
 import type { ExamSectionFormData } from '@/types/exam'
+import type { RecognizedSectionDraft } from '@/utils/sectionOcr'
+import SectionOcrDialog from './SectionOcrDialog.vue'
 import { getChildrenOf } from '@/utils/constants'
+import {
+  recognizeSectionImage,
+  validateOcrImage,
+} from '@/utils/sectionOcr'
 
 const props = defineProps<{
   sections: ExamSectionFormData[]
+  enableOcr?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:sections': [sections: ExamSectionFormData[]]
+  'ocr-fill': [rows: RecognizedSectionDraft[]]
 }>()
+
+const message = useMessage()
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const recognizing = ref(false)
+const showOcrDialog = ref(false)
+const recognizedRows = ref<RecognizedSectionDraft[]>([])
 
 let nextClientId = 1
 
@@ -102,6 +116,65 @@ function updateAll(list: ExamSectionFormData[]) {
   emit('update:sections', list)
 }
 
+function openFilePicker() {
+  if (recognizing.value) return
+  fileInputRef.value?.click()
+}
+
+async function handleFileInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  await processImage(file)
+}
+
+async function processImage(file: File) {
+  const error = validateOcrImage(file)
+  if (error) {
+    message.warning(error)
+    return
+  }
+
+  recognizing.value = true
+  try {
+    message.loading('正在识别中，请稍候', { duration: 1800 })
+    const rows = await recognizeSectionImage(file)
+    if (rows.length === 0) {
+      message.warning('API 已返回内容，但未解析到有效板块数据。请打开控制台查看 [OCR] 原始返回摘要')
+      return
+    }
+    recognizedRows.value = rows
+    showOcrDialog.value = true
+  } catch (e) {
+    console.error('[OCR] recognize failed:', e)
+    message.warning(String(e))
+  } finally {
+    recognizing.value = false
+  }
+}
+
+function handleOcrConfirm(rows: RecognizedSectionDraft[]) {
+  emit('ocr-fill', rows)
+}
+
+function handlePaste(event: ClipboardEvent) {
+  if (!props.enableOcr || recognizing.value) return
+  const items = Array.from(event.clipboardData?.items ?? [])
+  const imageItem = items.find((item) => item.type.startsWith('image/'))
+  const file = imageItem?.getAsFile()
+  if (!file) return
+  void processImage(file)
+}
+
+onMounted(() => {
+  window.addEventListener('paste', handlePaste)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('paste', handlePaste)
+})
+
 // 总题数、总用时汇总
 const summary = computed(() => ({
   parentCount: parentSections.value.length,
@@ -119,7 +192,21 @@ const summary = computed(() => ({
     <!-- 表头 -->
     <div class="section-header">
       <span class="header-label">🏷️ 板块成绩</span>
-      <NButton size="small" @click="handleAddParent">+ 添加一级板块</NButton>
+      <NSpace :size="8">
+        <template v-if="enableOcr">
+          <input
+            ref="fileInputRef"
+            class="hidden-file"
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
+            @change="handleFileInput"
+          />
+          <NButton size="small" :loading="recognizing" @click="openFilePicker">
+            上传截图一键录入
+          </NButton>
+        </template>
+        <NButton size="small" @click="handleAddParent">+ 添加一级板块</NButton>
+      </NSpace>
     </div>
 
     <NDivider style="margin: 8px 0" />
@@ -186,6 +273,13 @@ const summary = computed(() => ({
         </span>
       </NSpace>
     </div>
+
+    <SectionOcrDialog
+      v-model:show="showOcrDialog"
+      :rows="recognizedRows"
+      :loading="recognizing"
+      @confirm="handleOcrConfirm"
+    />
   </div>
 </template>
 
@@ -227,5 +321,8 @@ const summary = computed(() => ({
 }
 .summary-row {
   margin-top: 12px;
+}
+.hidden-file {
+  display: none;
 }
 </style>

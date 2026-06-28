@@ -99,6 +99,7 @@ export const useExamStore = defineStore('exam', () => {
       current_target_score: r.current_target_score,
       next_target_score: r.next_target_score,
       total_time: r.total_time,
+      question_order: r.question_order ?? null,
       notes: r.notes,
       created_at: r.created_at,
       updated_at: r.updated_at,
@@ -196,8 +197,8 @@ export const useExamStore = defineStore('exam', () => {
       const result = await db.execute(
         `INSERT INTO exam_records
           (exam_name, exam_date, exam_type_1, exam_type, total_score, full_score,
-           current_target_score, next_target_score, total_time, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+           current_target_score, next_target_score, total_time, question_order, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           data.exam_name,
           data.exam_date,
@@ -208,6 +209,7 @@ export const useExamStore = defineStore('exam', () => {
           data.current_target_score,
           data.next_target_score,
           data.total_time,
+          data.question_order,
           data.notes,
         ]
       )
@@ -258,12 +260,12 @@ export const useExamStore = defineStore('exam', () => {
         `UPDATE exam_records SET
           exam_name=$1, exam_date=$2, exam_type_1=$3, exam_type=$4,
           total_score=$5, full_score=$6, current_target_score=$7,
-          next_target_score=$8, total_time=$9, notes=$10
-         WHERE exam_id=$11`,
+          next_target_score=$8, total_time=$9, question_order=$10, notes=$11
+         WHERE exam_id=$12`,
         [
           data.exam_name, data.exam_date, data.exam_type_1, data.exam_type,
           data.total_score, data.full_score, data.current_target_score,
-          data.next_target_score, data.total_time, data.notes, data.exam_id,
+          data.next_target_score, data.total_time, data.question_order, data.notes, data.exam_id,
         ]
       )
 
