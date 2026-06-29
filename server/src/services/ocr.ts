@@ -6,13 +6,20 @@ export async function callPaddleOcr(file: { buffer: Buffer; filename: string }):
     throw new Error('PaddleOCR API is not configured on the server')
   }
   const token = env.paddleOcrApiKey.replace(/^(token|bearer)\s+/i, '').trim()
-  const optionalPayload = {
-    useDocOrientationClassify: false,
-    useDocUnwarping: false,
-    useTextlineOrientation: false,
-  }
+  const model = env.paddleOcrModel
+  const optionalPayload = model === 'PP-OCRv5'
+    ? {
+      useDocOrientationClassify: false,
+      useDocUnwarping: false,
+      useTextlineOrientation: false,
+    }
+    : {
+      useDocOrientationClassify: false,
+      useDocUnwarping: false,
+      useChartRecognition: false,
+    }
   const form = new FormData()
-  form.append('model', 'PaddleOCR-VL-1.6')
+  form.append('model', model)
   form.append('optionalPayload', JSON.stringify(optionalPayload))
   form.append('file', file.buffer, { filename: file.filename || 'exam-score.png' })
 

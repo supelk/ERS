@@ -620,6 +620,7 @@ function extractTextFromOcrResponse(payload: unknown): string {
       'output',
       'ocr',
       'ocrResult',
+      'ocrResults',
       'ocr_result',
       'lines',
       'items',
