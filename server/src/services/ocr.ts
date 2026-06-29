@@ -10,7 +10,7 @@ export async function callPaddleOcr(file: { buffer: Buffer; filename: string }):
   const optionalPayload = {
     useDocOrientationClassify: false,
     useDocUnwarping: false,
-    useTextlineOrientation: false,
+    useChartRecognition: false,
   }
   const form = new FormData()
   form.append('model', model)

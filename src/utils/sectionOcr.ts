@@ -125,7 +125,7 @@ async function callPaddleOcrApi(file: File): Promise<string> {
 
   if (contentType.includes('application/json')) {
     try {
-      const extractedText = extractTextFromOcrResponse(JSON.parse(responseText))
+      const extractedText = extractTextFromOcrResponseText(responseText)
       console.info('[OCR] Extracted text preview:', extractedText.slice(0, 1200))
       return extractedText
     } catch (e) {
@@ -134,6 +134,16 @@ async function callPaddleOcrApi(file: File): Promise<string> {
   }
 
   return responseText
+}
+
+function extractTextFromOcrResponseText(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  const lines = trimmed.split(/\r?\n/).filter(Boolean)
+  if (lines.length > 1) {
+    return lines.map((line) => extractTextFromOcrResponse(JSON.parse(line))).join('\n')
+  }
+  return extractTextFromOcrResponse(JSON.parse(trimmed))
 }
 
 export function parseSectionOcrText(text: string): RecognizedSectionDraft[] {
