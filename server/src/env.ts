@@ -12,5 +12,5 @@ export const env = {
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
   paddleOcrApiUrl: process.env.PADDLE_OCR_API_URL || '',
   paddleOcrApiKey: process.env.PADDLE_OCR_API_KEY || '',
-  paddleOcrModel: process.env.PADDLE_OCR_MODEL || 'PP-OCRv5',
+  paddleOcrModel: process.env.PADDLE_OCR_MODEL || 'PaddleOCR-VL-1.6',
 }

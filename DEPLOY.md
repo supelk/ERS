@@ -11,7 +11,7 @@
    - `DEEPSEEK_API_KEY`
    - `PADDLE_OCR_API_URL`
    - `PADDLE_OCR_API_KEY`
-   - `PADDLE_OCR_MODEL`，默认 `PP-OCRv5`
+   - `PADDLE_OCR_MODEL`，默认 `PaddleOCR-VL-1.6`
 3. Start services:
 
 ```bash

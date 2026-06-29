@@ -7,17 +7,11 @@ export async function callPaddleOcr(file: { buffer: Buffer; filename: string }):
   }
   const token = env.paddleOcrApiKey.replace(/^(token|bearer)\s+/i, '').trim()
   const model = env.paddleOcrModel
-  const optionalPayload = model === 'PP-OCRv5'
-    ? {
-      useDocOrientationClassify: false,
-      useDocUnwarping: false,
-      useTextlineOrientation: false,
-    }
-    : {
-      useDocOrientationClassify: false,
-      useDocUnwarping: false,
-      useChartRecognition: false,
-    }
+  const optionalPayload = {
+    useDocOrientationClassify: false,
+    useDocUnwarping: false,
+    useTextlineOrientation: false,
+  }
   const form = new FormData()
   form.append('model', model)
   form.append('optionalPayload', JSON.stringify(optionalPayload))
