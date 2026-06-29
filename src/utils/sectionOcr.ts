@@ -1,9 +1,9 @@
-import { invoke } from '@tauri-apps/api/core'
 import {
   SECTION_HIERARCHY,
   SECTION_SCORE_PRESETS,
   getParentSectionName,
 } from '@/utils/constants'
+import { api } from '@/utils/api'
 import type { ExamType1 } from '@/types/exam'
 
 export interface RecognizedSectionDraft {
@@ -35,8 +35,6 @@ interface PaddleOcrCommandResponse {
 
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp'])
-const OCR_API_URL_KEY = 'ers-paddle-ocr-api-url'
-const OCR_API_KEY_KEY = 'ers-paddle-ocr-api-key'
 
 const SECTION_NAMES = SECTION_HIERARCHY.flatMap((section) => [
   section.name,
@@ -71,16 +69,16 @@ export function validateOcrImage(file: File): string | null {
 }
 
 export function getStoredPaddleOcrApiUrl(): string {
-  return localStorage.getItem(OCR_API_URL_KEY) || ''
+  return ''
 }
 
 export function getStoredPaddleOcrApiKey(): string {
-  return localStorage.getItem(OCR_API_KEY_KEY) || ''
+  return ''
 }
 
 export function setPaddleOcrConfig(apiUrl: string, apiKey: string): void {
-  localStorage.setItem(OCR_API_URL_KEY, apiUrl.trim())
-  localStorage.setItem(OCR_API_KEY_KEY, apiKey.trim())
+  void apiUrl
+  void apiKey
 }
 
 export async function recognizeSectionImage(file: File): Promise<RecognizedSectionDraft[]> {
@@ -100,41 +98,16 @@ export async function recognizeSectionImage(file: File): Promise<RecognizedSecti
 }
 
 async function callPaddleOcrApi(file: File): Promise<string> {
-  const apiUrl = getStoredPaddleOcrApiUrl()
-  const apiKey = getStoredPaddleOcrApiKey()
+  const form = new FormData()
+  form.append('file', file, file.name || 'exam-score.png')
 
-  if (!apiUrl) {
-    throw new Error('请先在设置页配置 PaddleOCR API 地址')
-  }
-
-  if (!apiKey) {
-    throw new Error('请先在设置页配置 PaddleOCR API Key')
-  }
-
-  const fileBase64 = await fileToBase64(file)
-
-  console.info('[OCR] PaddleOCR request:', {
-    apiUrl,
+  console.info('[OCR] PaddleOCR request via server:', {
     fileName: file.name,
     fileType: file.type,
     fileSize: file.size,
-    hasApiKey: Boolean(apiKey),
   })
 
-  let response: PaddleOcrCommandResponse
-  try {
-    response = await invoke<PaddleOcrCommandResponse>('call_paddle_ocr', {
-      request: {
-        api_url: apiUrl,
-        api_key: apiKey,
-        file_base64: fileBase64,
-        file_name: file.name || 'exam-score.png',
-      },
-    })
-  } catch (e) {
-    console.error('[OCR] PaddleOCR request failed before response:', e)
-    throw new Error(String(e))
-  }
+  const response = await api.post<PaddleOcrCommandResponse>('/ocr/recognize', form)
 
   const contentType = response.content_type || ''
   const responseText = response.body || ''
@@ -161,17 +134,6 @@ async function callPaddleOcrApi(file: File): Promise<string> {
   }
 
   return responseText
-}
-
-async function fileToBase64(file: File): Promise<string> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(reader.error || new Error('读取图片失败'))
-    reader.readAsDataURL(file)
-  })
-  const commaIndex = dataUrl.indexOf(',')
-  return commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl
 }
 
 export function parseSectionOcrText(text: string): RecognizedSectionDraft[] {

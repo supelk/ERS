@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+src-tauri/target
+.git
+.github
+.vscode
+.claude
+.agents
+*.log
+*.local
+.env
+server/node_modules
+server/dist

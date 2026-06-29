@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { h, ref, onMounted } from 'vue'
 import {
   NCard,
   NButton,
@@ -8,64 +8,122 @@ import {
   NText,
   NPopconfirm,
   NInput,
+  NSpace,
+  NDataTable,
   useMessage,
+  type DataTableColumns,
 } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { useDatabaseStore } from '@/stores/database'
+import { useAuthStore, type AppUser } from '@/stores/auth'
+import { useUsersStore } from '@/stores/users'
 import { useExamStore } from '@/stores/exam'
 import { useTaskStore } from '@/stores/task'
-import { getStoredApiKey, setApiKey } from '@/utils/llm'
-import {
-  getStoredPaddleOcrApiKey,
-  getStoredPaddleOcrApiUrl,
-  setPaddleOcrConfig,
-} from '@/utils/sectionOcr'
+import { api } from '@/utils/api'
 
+const router = useRouter()
 const message = useMessage()
 const appStore = useAppStore()
-const dbStore = useDatabaseStore()
+const authStore = useAuthStore()
+const usersStore = useUsersStore()
 const examStore = useExamStore()
 const taskStore = useTaskStore()
 
-const apiKey = ref(getStoredApiKey())
-const paddleOcrApiUrl = ref(getStoredPaddleOcrApiUrl())
-const paddleOcrApiKey = ref(getStoredPaddleOcrApiKey())
 const clearingData = ref(false)
+const newUsername = ref('')
+const newPassword = ref('')
+const resetPassword = ref<Record<number, string>>({})
 
-function saveApiKey() {
-  setApiKey(apiKey.value)
-  message.success('API Key 已保存')
-}
-
-function savePaddleOcrConfig() {
-  setPaddleOcrConfig(paddleOcrApiUrl.value, paddleOcrApiKey.value)
-  message.success('PaddleOCR API 已保存')
-}
+onMounted(async () => {
+  if (authStore.isAdmin) await usersStore.fetchUsers()
+})
 
 async function handleClearAllData() {
   clearingData.value = true
   try {
-    const db = dbStore.getDb()
-    await db.execute('DELETE FROM idiom_records')
-    await db.execute('DELETE FROM practice_tasks')
-    await db.execute('DELETE FROM exam_section_records')
-    await db.execute('DELETE FROM exam_records')
+    await api.delete('/auth/me/data')
     await examStore.fetchExams()
     await taskStore.fetchTasks()
-    message.success('所有数据已清空')
+    message.success('当前账号的数据已清空')
   } catch (e) {
     message.error('清空失败: ' + String(e))
   } finally {
     clearingData.value = false
   }
 }
+
+function handleLogout() {
+  authStore.logout()
+  router.push('/login')
+}
+
+async function createUser() {
+  try {
+    await usersStore.createUser(newUsername.value.trim(), newPassword.value)
+    newUsername.value = ''
+    newPassword.value = ''
+    message.success('账号已创建')
+  } catch (e) {
+    message.error('创建失败: ' + String(e))
+  }
+}
+
+async function toggleDisabled(user: AppUser) {
+  await usersStore.updateUser(user.id, { disabled: !user.disabled })
+}
+
+async function updatePassword(user: AppUser) {
+  const password = resetPassword.value[user.id]
+  if (!password) return
+  await usersStore.updateUser(user.id, { password })
+  resetPassword.value[user.id] = ''
+  message.success('密码已重置')
+}
+
+const columns: DataTableColumns<AppUser> = [
+  { title: '用户名', key: 'username' },
+  { title: '角色', key: 'role' },
+  {
+    title: '状态',
+    key: 'disabled',
+    render: (row) => row.disabled ? '已禁用' : '可用',
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    render: (row) => row.role === 'admin'
+      ? '管理员'
+      : h('div', { class: 'user-actions' }, [
+        h(NInput, {
+          value: resetPassword.value[row.id] || '',
+          placeholder: '新密码',
+          type: 'password',
+          size: 'small',
+          style: 'width: 120px',
+          onUpdateValue: (value: string) => { resetPassword.value[row.id] = value },
+        }),
+        h(NButton, { size: 'small', onClick: () => updatePassword(row) }, { default: () => '重置' }),
+        h(NButton, { size: 'small', type: row.disabled ? 'primary' : 'warning', onClick: () => toggleDisabled(row) }, { default: () => row.disabled ? '启用' : '禁用' }),
+      ]),
+  },
+]
 </script>
 
 <template>
   <div>
     <h2 class="settings-title">设置</h2>
 
-    <!-- 外观 -->
+    <NCard title="账号" size="small" style="margin-bottom: 16px">
+      <div class="setting-row">
+        <div>
+          <NText strong>{{ authStore.user?.username }}</NText>
+          <br />
+          <NText depth="3" style="font-size: 12px">角色：{{ authStore.user?.role }}</NText>
+        </div>
+        <NButton @click="handleLogout">退出登录</NButton>
+      </div>
+    </NCard>
+
     <NCard title="外观" size="small" style="margin-bottom: 16px">
       <div class="setting-row">
         <NText>深色模式</NText>
@@ -73,95 +131,42 @@ async function handleClearAllData() {
       </div>
     </NCard>
 
-    <!-- API 配置 -->
-    <NCard title="API 配置" size="small" style="margin-bottom: 16px">
-      <div class="setting-row">
-        <div>
-          <NText strong>DeepSeek API Key</NText>
-          <br />
-          <NText depth="3" style="font-size: 12px">用于成语释义、同义词辨析等 AI 功能。Key 仅存储在本地。</NText>
-        </div>
-      </div>
-      <div style="display: flex; gap: 8px; margin-top: 8px">
-        <NInput
-          :value="apiKey"
-          @update:value="(v: string) => apiKey = v"
-          type="password"
-          show-password-on="click"
-          placeholder="sk-..."
-          style="flex: 1"
-        />
-        <NButton type="primary" size="small" @click="saveApiKey">保存</NButton>
-      </div>
-
-      <NDivider />
-
-      <div class="setting-row">
-        <div>
-          <NText strong>PaddleOCR API</NText>
-          <br />
-          <NText depth="3" style="font-size: 12px">用于考试成绩截图识别。系统会以 multipart/form-data 上传图片。</NText>
-        </div>
-      </div>
-      <div class="api-stack">
-        <NInput
-          :value="paddleOcrApiUrl"
-          @update:value="(v: string) => paddleOcrApiUrl = v"
-          placeholder="https://your-paddleocr-service/ocr"
-        />
-        <div style="display: flex; gap: 8px">
-          <NInput
-            :value="paddleOcrApiKey"
-            @update:value="(v: string) => paddleOcrApiKey = v"
-            type="password"
-            show-password-on="click"
-            placeholder="API Key（如无鉴权可留空）"
-            style="flex: 1"
-          />
-          <NButton type="primary" size="small" @click="savePaddleOcrConfig">保存</NButton>
-        </div>
-      </div>
+    <NCard title="服务配置" size="small" style="margin-bottom: 16px">
+      <NText depth="3">
+        DeepSeek 和 PaddleOCR 密钥已迁移到服务器环境变量，浏览器不会保存或暴露敏感 Key。
+      </NText>
     </NCard>
 
-    <!-- 数据管理 -->
+    <NCard v-if="authStore.isAdmin" title="用户管理" size="small" style="margin-bottom: 16px">
+      <NSpace style="margin-bottom: 12px">
+        <NInput v-model:value="newUsername" placeholder="用户名" style="width: 180px" />
+        <NInput v-model:value="newPassword" type="password" placeholder="初始密码" style="width: 180px" />
+        <NButton type="primary" @click="createUser">创建账号</NButton>
+      </NSpace>
+      <NDataTable :columns="columns" :data="usersStore.users" :loading="usersStore.loading" size="small" />
+    </NCard>
+
     <NCard title="数据管理" size="small" style="margin-bottom: 16px">
       <div class="setting-row">
         <div>
-          <NText strong>清空所有数据</NText>
+          <NText strong>清空当前账号数据</NText>
           <br />
-          <NText depth="3" style="font-size: 12px">删除所有考试记录、板块数据和练习任务。此操作不可撤销。</NText>
+          <NText depth="3" style="font-size: 12px">删除当前账号的考试、练习任务、练习记录和成语记录。此操作不可撤销。</NText>
         </div>
         <NPopconfirm @positive-click="handleClearAllData">
           <template #trigger>
             <NButton type="error" :loading="clearingData">清空数据</NButton>
           </template>
-          确认清空所有数据？
+          确认清空当前账号的所有数据？
         </NPopconfirm>
       </div>
     </NCard>
 
-    <!-- 快捷键 -->
-    <NCard title="快捷键" size="small" style="margin-bottom: 16px">
-      <div class="shortcut-list">
-        <div class="shortcut-item">
-          <NText>折叠/展开侧边栏</NText>
-          <NText depth="3">点击侧边栏底部按钮</NText>
-        </div>
-      </div>
-    </NCard>
-
-    <!-- 关于 -->
     <NCard title="关于" size="small">
       <div class="about-info">
-        <p><b>考试复盘闭环系统</b> v0.2.0</p>
-        <p class="about-desc">
-          帮你告别 Excel，高效沉淀每次考试的成长数据。<br />
-          从录入 → 分析 → 目标 → 计划，形成完整闭环。
-        </p>
+        <p><b>考试复盘系统</b> v0.2.0-cloud</p>
         <NDivider />
-        <p class="about-tech">
-          技术栈：Tauri v2 + Vue 3 + NaiveUI + SQLite
-        </p>
+        <p class="about-tech">技术栈：Vue 3 + Fastify + PostgreSQL</p>
       </div>
     </NCard>
   </div>
@@ -179,34 +184,19 @@ async function handleClearAllData() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   padding: 8px 0;
-}
-.api-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-.shortcut-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.shortcut-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
 }
 .about-info p {
   margin: 4px 0;
 }
-.about-desc {
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
 .about-tech {
   color: var(--text-tertiary);
   font-size: 12px;
+}
+:deep(.user-actions) {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 </style>

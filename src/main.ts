@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useDatabaseStore } from './stores/database'
+import { useAuthStore } from './stores/auth'
 
 async function bootstrap() {
   const app = createApp(App)
@@ -15,6 +16,7 @@ async function bootstrap() {
   const dbStore = useDatabaseStore()
   try {
     await dbStore.init()
+    await useAuthStore().init()
     console.log('[App] Database initialized successfully')
   } catch (e) {
     const errMsg = String(e)

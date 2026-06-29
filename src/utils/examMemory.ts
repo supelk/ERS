@@ -1,7 +1,7 @@
 // ============================================================
 // 历史输入记忆 — 按考试分类缓存最近一次提交的目标字段值
 // ============================================================
-import { useDatabaseStore } from '@/stores/database'
+import { useExamStore } from '@/stores/exam'
 
 export interface ExamMemory {
   current_target_score: number | null
@@ -52,23 +52,14 @@ export async function fetchMemoryFromDB(
   type1: string,
 ): Promise<ExamMemory | null> {
   try {
-    const db = useDatabaseStore().getDb()
-    if (!db) return null
-
-    const rows = await db.select<any[]>(
-      'SELECT * FROM exam_records WHERE exam_type_1 = $1 ORDER BY exam_date DESC, exam_id DESC LIMIT 1',
-      [type1],
-    )
-    if (rows.length === 0) return null
-
-    const exam = rows[0]
-    const sectionRows = await db.select<any[]>(
-      'SELECT * FROM exam_section_records WHERE exam_id = $1',
-      [exam.exam_id],
-    )
+    const examStore = useExamStore()
+    await examStore.fetchExams()
+    const exam = examStore.exams.find((item) => item.exam_type_1 === type1)
+    if (!exam) return null
+    await examStore.fetchExamById(exam.exam_id)
 
     const sectionMap: ExamMemory['sections'] = {}
-    for (const s of sectionRows) {
+    for (const s of examStore.currentSections) {
       if (s.next_target_accuracy != null || s.next_target_time != null) {
         sectionMap[s.section_name] = {
           next_target_accuracy: s.next_target_accuracy ?? null,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   NLayout,
   NLayoutSider,
@@ -18,6 +19,7 @@ import { useDatabaseStore } from '@/stores/database'
 
 const appStore = useAppStore()
 const dbStore = useDatabaseStore()
+const route = useRoute()
 
 // NaiveUI 主题覆盖 — 现代极简办公风
 const themeOverrides: GlobalThemeOverrides = {
@@ -124,7 +126,13 @@ const theme = null
     <!-- ============================================================
          桌面/平板模式：正常侧边栏 + 主内容
          ============================================================ -->
-    <NLayout v-if="!appStore.isMobile" has-sider position="absolute">
+    <NLayout v-if="route.meta.public" position="absolute">
+      <NMessageProvider>
+        <router-view />
+      </NMessageProvider>
+    </NLayout>
+
+    <NLayout v-else-if="!appStore.isMobile" has-sider position="absolute">
       <NLayoutSider
         bordered
         :collapsed="appStore.sidebarCollapsed"
