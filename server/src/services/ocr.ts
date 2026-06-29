@@ -1,4 +1,3 @@
-import FormData from 'form-data'
 import { env } from '../env.js'
 
 export async function callPaddleOcr(file: { buffer: Buffer; filename: string }): Promise<{ status: number; content_type: string; body: string }> {
@@ -15,12 +14,12 @@ export async function callPaddleOcr(file: { buffer: Buffer; filename: string }):
   const form = new FormData()
   form.append('model', model)
   form.append('optionalPayload', JSON.stringify(optionalPayload))
-  form.append('file', file.buffer, { filename: file.filename || 'exam-score.png' })
+  form.append('file', new Blob([file.buffer], { type: getImageContentType(file.filename) }), file.filename || 'exam-score.png')
 
   const submit = await fetch(env.paddleOcrApiUrl, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
-    body: form as any,
+    headers: { Authorization: `bearer ${token}` },
+    body: form,
   })
   const submitBody = await submit.text()
   if (!submit.ok) return { status: submit.status, content_type: 'application/json', body: submitBody }
@@ -54,4 +53,11 @@ export async function callPaddleOcr(file: { buffer: Buffer; filename: string }):
     content_type: result.headers.get('content-type') || '',
     body: await result.text(),
   }
+}
+
+function getImageContentType(filename: string): string {
+  const lower = filename.toLowerCase()
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/png'
 }
