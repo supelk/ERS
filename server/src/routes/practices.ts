@@ -1,6 +1,17 @@
 import type { FastifyInstance } from 'fastify'
 import { one, query } from '../db.js'
 
+const PRACTICE_SECTION_GROUPS: Record<string, string[]> = {
+  '政治理论': ['政治理论'],
+  '常识判断': ['常识判断'],
+  '言语理解': ['言语理解', '逻辑填空', '片段阅读', '语句表达', '片段&表达'],
+  '数量关系': ['数量关系', '数字推理', '数学运算'],
+  '判断推理': ['判断推理', '图形推理', '逻辑判断', '定义判断', '类比推理', '科学推理'],
+  '资料分析': ['资料分析'],
+}
+
+const PRACTICE_PARENT_SECTIONS = Object.keys(PRACTICE_SECTION_GROUPS)
+
 export async function practiceRoutes(app: FastifyInstance) {
   app.get('/practice-records', { preHandler: app.authenticate }, async (request) => {
     const records = await query('SELECT * FROM practice_records WHERE user_id = $1 ORDER BY practice_date DESC, id DESC', [request.currentUser.id])
@@ -43,8 +54,9 @@ export async function practiceRoutes(app: FastifyInstance) {
     const params: unknown[] = [request.currentUser.id]
     let where = 'WHERE user_id = $1'
     if (request.query.section_name) {
-      params.push(request.query.section_name)
-      where += ' AND section_name = $2'
+      const sectionNames = getPracticeSectionGroup(request.query.section_name)
+      params.push(sectionNames)
+      where += ' AND section_name = ANY($2)'
     }
     const rows = await query<any>(`SELECT * FROM practice_records ${where} ORDER BY practice_date ASC`, params)
     return {
@@ -55,9 +67,8 @@ export async function practiceRoutes(app: FastifyInstance) {
     }
   })
 
-  app.get('/practice-records/sections', { preHandler: app.authenticate }, async (request) => {
-    const rows = await query<any>('SELECT DISTINCT section_name FROM practice_records WHERE user_id = $1 ORDER BY section_name', [request.currentUser.id])
-    return { sections: rows.map((r) => r.section_name) }
+  app.get('/practice-records/sections', { preHandler: app.authenticate }, async () => {
+    return { sections: PRACTICE_PARENT_SECTIONS }
   })
 
   app.get('/practice-tasks', { preHandler: app.authenticate }, async (request) => {
@@ -97,4 +108,8 @@ export async function practiceRoutes(app: FastifyInstance) {
     await query('DELETE FROM practice_tasks WHERE user_id=$1 AND task_id=$2', [request.currentUser.id, Number(request.params.id)])
     return { ok: true }
   })
+}
+
+function getPracticeSectionGroup(sectionName: string): string[] {
+  return PRACTICE_SECTION_GROUPS[sectionName] ?? [sectionName]
 }

@@ -22,7 +22,7 @@ import TrendLineChart from '@/components/analysis/TrendLineChart.vue'
 import { usePracticeStore } from '@/stores/practice'
 import type { PracticeRecord } from '@/types/exam'
 import { formatDate, formatPercent, formatNumber } from '@/utils/formatters'
-import { PARENT_SECTIONS } from '@/utils/constants'
+import { PARENT_SECTIONS, getChildrenOf, isParentSection } from '@/utils/constants'
 import { computeYRange } from '@/utils/calculations'
 
 const router = useRouter()
@@ -66,10 +66,18 @@ const filteredData = computed(() => {
     list = list.filter((r) => r.section_name.toLowerCase().includes(kw))
   }
   if (filterSection.value) {
-    list = list.filter((r) => r.section_name === filterSection.value)
+    const names = getPracticeSectionGroup(filterSection.value)
+    list = list.filter((r) => names.includes(r.section_name))
   }
   return list
 })
+
+function getPracticeSectionGroup(sectionName: string): string[] {
+  if (!isParentSection(sectionName)) return [sectionName]
+  const names = [sectionName, ...getChildrenOf(sectionName)]
+  if (sectionName === '言语理解') names.push('片段&表达')
+  return names
+}
 
 const pagedData = computed(() => {
   const start = (page.value - 1) * pageSize
