@@ -15,6 +15,8 @@ import {
   NCard,
   NGrid,
   NGi,
+  NDrawer,
+  NDrawerContent,
   useMessage,
   type DataTableColumns,
 } from 'naive-ui'
@@ -34,6 +36,8 @@ const searchKeyword = ref('')
 const filterSection = ref('')
 const page = ref(1)
 const pageSize = 20
+const selectedRecord = ref<PracticeRecord | null>(null)
+const showNotesDrawer = ref(false)
 
 const trendFilterSection = ref('')
 const trends = ref<{
@@ -261,6 +265,18 @@ async function handleDelete(id: number) {
 function goCreate() {
   router.push('/practice/new')
 }
+
+function openNotesDrawer(row: PracticeRecord) {
+  selectedRecord.value = row
+  showNotesDrawer.value = true
+}
+
+function rowProps(row: PracticeRecord) {
+  return {
+    class: 'clickable-row',
+    onClick: () => openNotesDrawer(row),
+  }
+}
 </script>
 
 <template>
@@ -352,6 +368,7 @@ function goCreate() {
           :columns="columns"
           :data="pagedData"
           :row-key="(row: PracticeRecord) => row.id"
+          :row-props="rowProps"
           :bordered="false"
           :single-line="false"
           size="medium"
@@ -366,6 +383,23 @@ function goCreate() {
         </div>
       </template>
     </NSpin>
+
+    <NDrawer v-model:show="showNotesDrawer" placement="right" width="360">
+      <NDrawerContent v-if="selectedRecord" title="练习备注" closable>
+        <div class="notes-meta">
+          <NTag size="small" :bordered="false">{{ selectedRecord.section_name }}</NTag>
+          <span>{{ formatDate(selectedRecord.practice_date) }}</span>
+        </div>
+        <div class="notes-stats">
+          <span>题量 {{ selectedRecord.total_questions }}</span>
+          <span>正确率 {{ formatPercent(selectedRecord.accuracy) }}</span>
+          <span>平均 {{ formatNumber(selectedRecord.avg_time_per_question, 2) }} 分/题</span>
+        </div>
+        <div class="notes-body">
+          {{ selectedRecord.notes || '暂无备注' }}
+        </div>
+      </NDrawerContent>
+    </NDrawer>
   </div>
 </template>
 
@@ -435,5 +469,32 @@ function goCreate() {
 
 :deep(.n-data-table-tr:hover) {
   background-color: var(--bg-hover) !important;
+}
+:deep(.clickable-row) {
+  cursor: pointer;
+}
+
+.notes-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.notes-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.notes-body {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--text-primary);
 }
 </style>
